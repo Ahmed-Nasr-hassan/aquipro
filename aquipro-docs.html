@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquiPro — Documentation & Groundwater Analysis Guide</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { colors: {
+    primary: {50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a'},
+  }}}
+}
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;transition:background .3s,color .3s;line-height:1.7}
+.dark body,.dark{background:#0f172a;color:#cbd5e1}
+.light body,.light{background:#fff;color:#334155}
+.hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 50%,#1d4ed8 100%);color:#fff;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+.sidebar{position:sticky;top:5rem;max-height:calc(100vh - 6rem);overflow-y:auto}
+.sidebar a{display:block;padding:.375rem .75rem;font-size:.8125rem;color:#64748b;border-left:2px solid transparent;transition:all .15s;text-decoration:none}
+.sidebar a:hover,.sidebar a.active{color:#2563eb;border-left-color:#2563eb;background:#eff6ff}
+.dark .sidebar a:hover,.dark .sidebar a.active{color:#60a5fa;border-left-color:#60a5fa;background:#1e3a5c}
+.sidebar .sub{padding-left:1.5rem;font-size:.75rem}
+article h2{font-size:1.5rem;font-weight:700;color:#1e3a8a;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:2px solid #e2e8f0;scroll-margin-top:6rem}
+.dark article h2{color:#60a5fa;border-color:#334155}
+article h3{font-size:1.125rem;font-weight:600;color:#334155;margin:1.75rem 0 .75rem;scroll-margin-top:6rem}
+.dark article h3{color:#e2e8f0}
+article h4{font-size:.9375rem;font-weight:600;color:#475569;margin:1.25rem 0 .5rem}
+.dark article h4{color:#94a3b8}
+article p{margin-bottom:1rem;font-size:.9375rem}
+article ul,article ol{margin-bottom:1rem;padding-left:1.5rem;font-size:.9375rem}
+article li{margin-bottom:.375rem}
+.card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.25rem;margin:1rem 0}
+.dark .card{background:#1e293b;border-color:#334155}
+.eq-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:.5rem;padding:1rem 1.25rem;margin:1rem 0;text-align:center;font-size:1.0625rem;overflow-x:auto}
+.dark .eq-box{background:#1e3a5c;border-color:#1d4ed8}
+.tip{background:#f0fdf4;border-left:4px solid #22c55e;padding:.75rem 1rem;border-radius:0 .5rem .5rem 0;margin:1rem 0;font-size:.875rem}
+.dark .tip{background:#052e16;border-color:#22c55e}
+.warning{background:#fffbeb;border-left:4px solid #f59e0b;padding:.75rem 1rem;border-radius:0 .5rem .5rem 0;margin:1rem 0;font-size:.875rem}
+.dark .warning{background:#451a03;border-color:#f59e0b}
+.note{background:#eff6ff;border-left:4px solid #3b82f6;padding:.75rem 1rem;border-radius:0 .5rem .5rem 0;margin:1rem 0;font-size:.875rem}
+.dark .note{background:#1e3a5c;border-color:#3b82f6}
+.step{display:flex;gap:1rem;margin:1rem 0;align-items:flex-start}
+.step-num{flex-shrink:0;width:2rem;height:2rem;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.875rem}
+.step-content{flex:1}
+.method-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin:1rem 0}
+.method-card{border:1px solid #e2e8f0;border-radius:.75rem;padding:1.25rem;transition:all .2s}
+.method-card:hover{border-color:#3b82f6;box-shadow:0 4px 12px rgba(59,130,246,.1)}
+.dark .method-card{border-color:#334155}
+.dark .method-card:hover{border-color:#60a5fa}
+.method-card h4{margin-top:0}
+.tag{display:inline-block;padding:.125rem .5rem;border-radius:1rem;font-size:.6875rem;font-weight:600;margin-right:.25rem}
+.tag-confined{background:#dbeafe;color:#1d4ed8}.dark .tag-confined{background:#1e3a8a;color:#93c5fd}
+.tag-leaky{background:#e9d5ff;color:#7c3aed}.dark .tag-leaky{background:#4c1d95;color:#c4b5fd}
+.tag-unconfined{background:#d1fae5;color:#065f46}.dark .tag-unconfined{background:#064e3b;color:#6ee7b7}
+.tag-recovery{background:#fce7f3;color:#be185d}.dark .tag-recovery{background:#831843;color:#f9a8d4}
+code{background:#f1f5f9;padding:.125rem .375rem;border-radius:.25rem;font-size:.8125rem;font-family:'Fira Code',monospace}
+.dark code{background:#0f172a}
+table{width:100%;border-collapse:collapse;font-size:.875rem;margin:1rem 0}
+th{background:#f1f5f9;padding:.5rem .75rem;text-align:left;font-weight:600;border-bottom:2px solid #e2e8f0;font-size:.8125rem}
+.dark th{background:#0f172a;border-color:#334155}
+td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
+.dark td{border-color:#1e293b}
+.toc-mobile{display:none}
+@media(max-width:1024px){.sidebar-wrapper{display:none}.toc-mobile{display:block}}
+.btn{padding:.5rem 1rem;border-radius:.5rem;font-size:.8125rem;font-weight:500;cursor:pointer;transition:all .2s;border:none;display:inline-flex;align-items:center;gap:.375rem;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}.btn-primary:hover{box-shadow:0 4px 12px rgba(59,130,246,.4);transform:translateY(-1px)}
+.btn-outline{border:1px solid #cbd5e1;background:transparent;color:#475569}.btn-outline:hover{border-color:#3b82f6;color:#3b82f6}
+.dark .btn-outline{border-color:#475569;color:#94a3b8}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}.dark ::-webkit-scrollbar-thumb{background:#475569}
+.katex{font-size:1em !important}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-50 backdrop-blur-lg bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <a href="https://ahmednasr.fekrlab.com/aquipro" class="flex items-center gap-3 text-decoration-none">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/30">💧</div>
+      <div>
+        <div class="text-sm font-semibold"><span class="text-blue-600">Aqui</span><span class="text-cyan-500">Pro</span> <span class="text-slate-400 font-normal text-xs">Documentation</span></div>
+      </div>
+    </a>
+    <div class="flex items-center gap-2">
+      <a href="https://ahmednasr.fekrlab.com/aquipro" class="btn btn-primary text-xs">← Back to App</a>
+      <button onclick="toggleTheme()" class="btn btn-outline text-xs" id="themeBtn">🌓</button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero py-16 px-4">
+  <div class="max-w-3xl mx-auto text-center relative z-10">
+    <h1 class="text-3xl md:text-4xl font-extrabold mb-4 leading-tight">Documentation & <br class="hidden md:inline">Groundwater Analysis Guide</h1>
+    <p class="text-blue-200 text-base md:text-lg max-w-2xl mx-auto">Learn how to use AquiPro and understand the hydrogeological theory behind pumping test analysis — from basic concepts to advanced curve matching.</p>
+    <div class="flex gap-3 justify-center mt-6 flex-wrap">
+      <a href="#quick-start" class="btn btn-primary">Quick Start →</a>
+      <a href="#theory" class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)">Theory & Methods →</a>
+    </div>
+  </div>
+</section>
+
+<!-- MOBILE TOC -->
+<div class="toc-mobile sticky top-[3.25rem] z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-2">
+  <select onchange="if(this.value)window.location.hash=this.value" class="w-full p-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-transparent dark:text-slate-200">
+    <option value="">📖 Jump to section...</option>
+    <option value="#quick-start">Quick Start</option>
+    <option value="#what-is">What is a Pumping Test?</option>
+    <option value="#tab-setup">Tab: Project Setup</option>
+    <option value="#tab-data">Tab: Data Input</option>
+    <option value="#tab-diagnostic">Tab: Diagnostic Plot</option>
+    <option value="#tab-analysis">Tab: Analysis</option>
+    <option value="#tab-map">Tab: Map & ROI</option>
+    <option value="#tab-report">Tab: Report</option>
+    <option value="#theory">Theory & Methods</option>
+    <option value="#theis">Theis Method</option>
+    <option value="#cooper-jacob">Cooper-Jacob Method</option>
+    <option value="#hantush">Hantush-Jacob Method</option>
+    <option value="#neuman">Neuman Method</option>
+    <option value="#recovery">Theis Recovery</option>
+    <option value="#derivative">Bourdet Derivative</option>
+    <option value="#parameters">Understanding Parameters</option>
+    <option value="#roi">Radius of Influence</option>
+    <option value="#tips">Tips & Best Practices</option>
+    <option value="#shortcuts">Keyboard Shortcuts</option>
+    <option value="#glossary">Glossary</option>
+  </select>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="max-w-6xl mx-auto px-4 py-6 flex gap-8">
+
+  <!-- SIDEBAR NAV -->
+  <aside class="sidebar-wrapper w-56 flex-shrink-0 hidden lg:block">
+    <nav class="sidebar">
+      <div class="text-[.65rem] font-bold uppercase text-slate-400 tracking-wider mb-2 px-3">Getting Started</div>
+      <a href="#quick-start">Quick Start</a>
+      <a href="#what-is">What is a Pumping Test?</a>
+
+      <div class="text-[.65rem] font-bold uppercase text-slate-400 tracking-wider mb-2 mt-4 px-3">Using AquiPro</div>
+      <a href="#tab-setup">Project Setup</a>
+      <a href="#tab-data">Data Input</a>
+      <a href="#tab-diagnostic">Diagnostic Plot</a>
+      <a href="#tab-analysis">Analysis</a>
+      <a href="#tab-map">Map & ROI</a>
+      <a href="#tab-report">Report</a>
+
+      <div class="text-[.65rem] font-bold uppercase text-slate-400 tracking-wider mb-2 mt-4 px-3">Theory & Methods</div>
+      <a href="#theory">Overview</a>
+      <a href="#theis" class="sub">Theis (1935)</a>
+      <a href="#cooper-jacob" class="sub">Cooper-Jacob (1946)</a>
+      <a href="#hantush" class="sub">Hantush-Jacob (1955)</a>
+      <a href="#neuman" class="sub">Neuman (1975)</a>
+      <a href="#recovery" class="sub">Theis Recovery</a>
+      <a href="#derivative">Bourdet Derivative</a>
+
+      <div class="text-[.65rem] font-bold uppercase text-slate-400 tracking-wider mb-2 mt-4 px-3">Reference</div>
+      <a href="#parameters">Understanding Parameters</a>
+      <a href="#roi">Radius of Influence</a>
+      <a href="#tips">Tips & Best Practices</a>
+      <a href="#shortcuts">Keyboard Shortcuts</a>
+      <a href="#glossary">Glossary</a>
+    </nav>
+  </aside>
+
+  <!-- ARTICLE -->
+  <article class="flex-1 min-w-0 max-w-3xl">
+
+    <!-- QUICK START -->
+    <h2 id="quick-start">🚀 Quick Start</h2>
+    <p>Get results in under 60 seconds:</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Load Example Data</strong>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-0">On the <em>Project Setup</em> tab, click <strong>"Load Example Dataset"</strong>. This fills in realistic coordinates, pumping parameters, and a 46-point time-drawdown dataset from a simulated confined aquifer test.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Go to Diagnostic Plot</strong>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-0">Click the <em>Diagnostic Plot</em> tab and hit <strong>Refresh</strong>. AquiPro will compute the Bourdet derivative, plot it, and automatically suggest which aquifer type and analysis method to use.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Run Analysis</strong>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-0">Go to the <em>Analysis</em> tab, choose a method, and click <strong>"Auto-Fit"</strong>. The Levenberg-Marquardt optimizer will find the best T and S in seconds. See the curve fit, R², and residuals instantly.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>View Map & Generate Report</strong>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-0">Visit <em>Map & ROI</em> to see the radius of influence, then go to <em>Report</em> to export a professional PDF.</p>
+      </div>
+    </div>
+
+    <div class="tip">
+      <strong>💡 Tip:</strong> Use keyboard shortcut <code>Ctrl+Enter</code> to run Auto-Fit from any tab, and numbers <code>1</code>–<code>6</code> to switch tabs instantly.
+    </div>
+
+    <!-- WHAT IS A PUMPING TEST -->
+    <h2 id="what-is">💧 What is a Pumping Test?</h2>
+    <p>A <strong>pumping test</strong> (also called an aquifer test) is a field experiment where water is pumped from a well at a controlled rate, and the resulting water-level decline (<strong>drawdown</strong>) is measured over time in the pumping well and/or nearby observation wells.</p>
+
+    <div class="card">
+      <h4 style="margin-top:0">Why do we perform pumping tests?</h4>
+      <ul>
+        <li><strong>Determine aquifer hydraulic properties</strong> — Transmissivity (T), Storativity (S), Hydraulic Conductivity (K), and Specific Yield (Sy)</li>
+        <li><strong>Assess sustainable yield</strong> — How much water can be extracted without over-depleting the aquifer?</li>
+        <li><strong>Identify boundary conditions</strong> — Detect recharge boundaries, barrier boundaries, or leakage from adjacent layers</li>
+        <li><strong>Design well fields</strong> — Determine well spacing, predict interference between wells</li>
+        <li><strong>Estimate radius of influence</strong> — How far does the cone of depression extend?</li>
+      </ul>
+    </div>
+
+    <h3>The Cone of Depression</h3>
+    <p>When a well pumps water, the water table (or piezometric surface) drops in a cone-shaped pattern centered on the well. This is called the <strong>cone of depression</strong>. The drawdown is greatest at the pumping well and decreases with distance. The shape and rate of growth of this cone tells us about the aquifer's properties.</p>
+
+    <h3>Types of Aquifers</h3>
+    <table>
+      <thead><tr><th>Type</th><th>Description</th><th>Key Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Confined</strong></td><td>Sandwiched between two impermeable layers (aquitards)</td><td>Water is under pressure. Drawdown responds quickly. Governed by elastic storage (S ≈ 10⁻⁵ to 10⁻³)</td></tr>
+        <tr><td><strong>Unconfined</strong></td><td>Upper boundary is the water table (free surface)</td><td>Water drains from pores by gravity. Delayed yield effect. Specific yield Sy ≈ 0.01 to 0.3</td></tr>
+        <tr><td><strong>Leaky (Semi-confined)</strong></td><td>Bounded by an aquitard that allows some vertical flow</td><td>Water leaks through the aquitard, recharging the aquifer during pumping</td></tr>
+      </tbody>
+    </table>
+
+    <!-- TAB GUIDES -->
+    <h2 id="tab-setup">⚙️ Tab 1: Project Setup</h2>
+    <p>This is where you configure everything about your test before loading data.</p>
+
+    <h3>Project Metadata</h3>
+    <p>Enter the project name, site location, date, and analyst name. These appear in the PDF report header.</p>
+
+    <h3>Pumping Parameters</h3>
+    <table>
+      <thead><tr><th>Parameter</th><th>Description</th><th>Typical Range</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Q</strong> — Pumping Rate</td><td>Constant flow rate extracted during the test</td><td>10–10,000 m³/day</td></tr>
+        <tr><td><strong>b</strong> — Aquifer Thickness</td><td>Saturated thickness of the aquifer formation</td><td>5–200 m</td></tr>
+        <tr><td><strong>SWL</strong> — Static Water Level</td><td>Water level before pumping began (depth below ground)</td><td>1–100 m</td></tr>
+        <tr><td><strong>Screen Interval</strong></td><td>Depth range where the well screen is placed</td><td>Within the aquifer</td></tr>
+        <tr><td><strong>b'</strong> — Aquitard Thickness</td><td>Thickness of confining layer (for leaky aquifer analysis)</td><td>1–50 m</td></tr>
+        <tr><td><strong>K'</strong> — Aquitard Conductivity</td><td>Vertical hydraulic conductivity of the aquitard</td><td>10⁻⁶ to 10⁻² m/day</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>📝 Units:</strong> AquiPro has a built-in unit conversion engine. You can enter Q in gpm, L/s, m³/day, or any supported unit — the app internally converts everything to SI for calculations. You can switch units anytime without re-entering data.
+    </div>
+
+    <h3>Well Coordinates</h3>
+    <p>Enter latitude/longitude for the pumping well and observation wells. AquiPro automatically computes the <strong>radial distance (r)</strong> between wells using the <strong>Haversine formula</strong>:</p>
+    <div class="eq-box">
+      \( r = 2R \arcsin\sqrt{\sin^2\!\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\,\cos\phi_2\,\sin^2\!\left(\frac{\Delta\lambda}{2}\right)} \)
+    </div>
+    <p>where R = 6,371,000 m (Earth's radius). You can also manually override the calculated distance if you have a more precise field measurement.</p>
+
+    <div class="tip">
+      <strong>💡 Tip:</strong> You can also click directly on the map in the <em>Map & ROI</em> tab to place wells instead of typing coordinates.
+    </div>
+
+    <h2 id="tab-data">📊 Tab 2: Data Input</h2>
+    <p>Load your time-drawdown data using one of three methods:</p>
+
+    <h3>Upload CSV / Excel</h3>
+    <p>Drag and drop a <code>.csv</code> or <code>.xlsx</code> file onto the drop zone. AquiPro auto-detects columns named "Time", "t", "Drawdown", "s", or similar. Your file should have at least two columns: time (in minutes) and drawdown (in meters).</p>
+
+    <h3>Manual Entry</h3>
+    <p>Use the interactive table to type values directly. Use <strong>"+ Add Row"</strong> or <strong>"+ Add 10 Rows"</strong> to expand the table. You can also <strong>paste from Excel</strong> — just select cells in your spreadsheet, copy (Ctrl+C), and paste into the table (Ctrl+V). AquiPro auto-detects tab-separated data.</p>
+
+    <h3>Paste Data</h3>
+    <p>Paste raw comma or tab-separated data into the text area and click "Parse Data".</p>
+
+    <h3>Data Preprocessing</h3>
+    <p>The right panel offers four preprocessing tools:</p>
+    <table>
+      <thead><tr><th>Tool</th><th>What It Does</th><th>When to Use</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Outlier Detection</strong></td><td>Uses the IQR (Interquartile Range) method to flag statistical outliers. Flagged rows appear highlighted in red.</td><td>When you suspect erratic readings from logger malfunctions or transducer noise</td></tr>
+        <tr><td><strong>Smoothing</strong></td><td>Moving-average filter with adjustable window size (3–11 points)</td><td>Noisy transducer data with high-frequency fluctuations</td></tr>
+        <tr><td><strong>Detrending</strong></td><td>Removes a linear trend from the first few data points</td><td>When there was a pre-existing water level trend (tidal, barometric) before pumping</td></tr>
+        <tr><td><strong>Wellbore Storage</strong></td><td>Detects early-time data with unit slope on log-log plot, which indicates water is being released from the casing rather than the aquifer</td><td>Early-time data in large-diameter wells</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Recovery Data Extraction</h3>
+    <p>If your dataset includes both pumping and recovery phases, enter the <strong>pump-off time</strong> (when the pump was shut off) and click <strong>"Extract Recovery Phase"</strong>. AquiPro will compute the residual drawdown (s') and the ratio t/t' needed for Theis Recovery analysis.</p>
+
+    <h2 id="tab-diagnostic">🔍 Tab 3: Diagnostic Plot</h2>
+    <p>This is the most powerful diagnostic tool in modern pumping test analysis — and AquiPro computes it automatically.</p>
+
+    <h3>What is the Bourdet Derivative?</h3>
+    <p>The <strong>Bourdet derivative</strong> (Bourdet et al., 1989) plots the <em>logarithmic derivative of drawdown</em> against time on a log-log scale. It is defined as:</p>
+    <div class="eq-box">
+      \( s' = \frac{ds}{d(\ln t)} = t \cdot \frac{ds}{dt} \)
+    </div>
+    <p>AquiPro uses the <strong>three-point weighted formula</strong> for numerical stability:</p>
+    <div class="eq-box">
+      \( s'_i = \frac{\frac{\Delta s_1}{\Delta \ln t_1} \cdot \Delta \ln t_2 + \frac{\Delta s_2}{\Delta \ln t_2} \cdot \Delta \ln t_1}{\Delta \ln t_1 + \Delta \ln t_2} \)
+    </div>
+
+    <p>The <strong>L parameter</strong> (smoothing factor) controls how far apart the neighboring points are when computing the derivative. Increase L if your derivative is too noisy; decrease it to capture fine detail.</p>
+
+    <h3>Reading the Diagnostic Plot</h3>
+    <p>The shape of the derivative curve reveals the aquifer type:</p>
+
+    <div class="method-grid">
+      <div class="method-card">
+        <span class="tag tag-confined">Confined</span>
+        <h4>Flat Derivative</h4>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Derivative stabilizes as a horizontal line at late time. This is classic <strong>infinite-acting radial flow (IARF)</strong> — the aquifer behaves as a confined, infinite system.</p>
+        <p class="text-sm"><strong>Use:</strong> Theis or Cooper-Jacob</p>
+      </div>
+      <div class="method-card">
+        <span class="tag tag-unconfined">Unconfined</span>
+        <h4>Dip and Recovery</h4>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Derivative dips below the early stabilization, then rises back. This <strong>delayed yield</strong> signature occurs as gravity drainage from the unsaturated zone catches up.</p>
+        <p class="text-sm"><strong>Use:</strong> Neuman</p>
+      </div>
+      <div class="method-card">
+        <span class="tag tag-leaky">Leaky</span>
+        <h4>Dropping Derivative</h4>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Derivative drops toward zero at late time. Water leaking through the aquitard <strong>stabilizes the drawdown</strong>, reducing the derivative.</p>
+        <p class="text-sm"><strong>Use:</strong> Hantush-Jacob</p>
+      </div>
+      <div class="method-card">
+        <span class="tag" style="background:#fee2e2;color:#dc2626">Barrier</span>
+        <h4>Rising Derivative</h4>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Derivative continuously increases (doubles the IARF level). An <strong>impermeable boundary</strong> causes extra drawdown as the cone hits the barrier.</p>
+        <p class="text-sm"><strong>Use:</strong> Image well method or boundary-aware Theis</p>
+      </div>
+    </div>
+
+    <div class="warning">
+      <strong>⚠️ Wellbore Storage:</strong> A unit slope (45° line) at early time in both drawdown and derivative indicates <strong>wellbore storage</strong> — water being released from the casing, not the aquifer. Ignore these points during curve matching or use the preprocessing flag in the Data Input tab.
+    </div>
+
+    <h2 id="tab-analysis">📐 Tab 4: Analysis</h2>
+    <p>This is where you determine the aquifer's hydraulic properties by matching your observed data to a theoretical type curve.</p>
+
+    <h3>Choosing a Method</h3>
+    <p>Select a method from the dropdown based on your diagnostic plot results or aquifer knowledge. AquiPro implements five methods (see the <a href="#theory">Theory section</a> below for full equations).</p>
+
+    <h3>Manual Curve Matching</h3>
+    <p>Use the <strong>T</strong> and <strong>S</strong> sliders to manually adjust the theoretical curve until it overlays the observed data. The sliders are logarithmic — small movements produce large parameter changes. Watch the RMSE and R² values update in real time.</p>
+
+    <h3>Automatic Fitting (Levenberg-Marquardt)</h3>
+    <p>Click <strong>"Auto-Fit"</strong> and AquiPro will run the <strong>Levenberg-Marquardt</strong> nonlinear least-squares optimizer to find the T and S (and Sy or r/B where applicable) that minimize the sum of squared residuals between observed and theoretical drawdown.</p>
+
+    <div class="card">
+      <h4 style="margin-top:0">How the Optimizer Works</h4>
+      <ol>
+        <li>Starts from the current slider values as initial guesses</li>
+        <li>Computes the Jacobian matrix using finite differences</li>
+        <li>Iteratively adjusts parameters using a damped Gauss-Newton step</li>
+        <li>Uses log-transformation to enforce positive parameter bounds</li>
+        <li>Converges when improvement drops below tolerance (up to 200 iterations)</li>
+      </ol>
+    </div>
+
+    <div class="tip">
+      <strong>💡 Tip:</strong> If auto-fit gives unexpected results, try adjusting the sliders to give it a better starting point, then run it again. The optimizer finds a <em>local</em> minimum — a good initial guess helps it find the <em>global</em> one.
+    </div>
+
+    <h3>Axis Modes</h3>
+    <ul>
+      <li><strong>Log-Log</strong> — Standard for Theis type-curve matching. Both axes logarithmic.</li>
+      <li><strong>Semi-Log</strong> — Standard for Cooper-Jacob. Time on log axis, drawdown on linear axis.</li>
+      <li><strong>Linear</strong> — Useful for checking data quality and late-time behavior.</li>
+    </ul>
+
+    <h3>Goodness-of-Fit Metrics</h3>
+    <table>
+      <thead><tr><th>Metric</th><th>Formula</th><th>Good Value</th></tr></thead>
+      <tbody>
+        <tr><td><strong>RMSE</strong></td><td>Root Mean Square Error</td><td>< 0.05 m (depends on drawdown magnitude)</td></tr>
+        <tr><td><strong>R²</strong></td><td>Coefficient of Determination</td><td>> 0.99 (excellent), > 0.95 (good)</td></tr>
+        <tr><td><strong>NSE</strong></td><td>Nash-Sutcliffe Efficiency</td><td>> 0.9 (very good model)</td></tr>
+        <tr><td><strong>MAE</strong></td><td>Mean Absolute Error</td><td>As low as possible</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Sensitivity Analysis</h3>
+    <p>Click <strong>"Sensitivity Analysis"</strong> to see how the predicted drawdown changes as T varies by ±10%, ±25%, and ±50%. This helps assess uncertainty in your parameter estimates.</p>
+
+    <h3>Drawdown Prediction</h3>
+    <p>Enter a future time value to predict the drawdown at that time using the fitted model. Useful for estimating drawdown at the end of a planned pumping period.</p>
+
+    <h2 id="tab-map">🗺️ Tab 5: Map & ROI</h2>
+    <p>An interactive Leaflet.js map for spatial visualization.</p>
+
+    <h3>Well Markers</h3>
+    <ul>
+      <li><strong>Red pulsing marker</strong> — Pumping well</li>
+      <li><strong>Blue markers</strong> — Observation wells (with labels)</li>
+      <li>Click on markers to see well details</li>
+      <li><strong>Click on the map</strong> to place/move wells (select which well from the dropdown)</li>
+    </ul>
+
+    <h3>Radius of Influence (ROI)</h3>
+    <p>After running analysis, click <strong>"Update ROI on Map"</strong>. AquiPro computes the ROI using the Cooper-Jacob approximation and draws it as a dashed purple circle.</p>
+
+    <h3>Drawdown Contours</h3>
+    <p>Enable <strong>"Show Contour Rings"</strong> to display concentric circles at 0.1, 0.5, 1, 2, and 5 m drawdown. Each ring's radius is computed by solving the Theis equation inversely for the distance r at each drawdown level.</p>
+
+    <h3>Distance Ruler</h3>
+    <p>Click <strong>"Start Ruler"</strong> then click two points on the map to measure the straight-line distance between them.</p>
+
+    <h2 id="tab-report">📄 Tab 6: Report</h2>
+    <p>Generate professional, client-ready outputs.</p>
+    <ul>
+      <li><strong>Build Preview</strong> — Renders an HTML preview of the report within the tab</li>
+      <li><strong>Generate PDF</strong> — Creates a multi-page PDF with cover page, input parameters, results table, chart snapshot, and footer with page numbers</li>
+      <li><strong>Export CSV</strong> — Downloads time, observed drawdown, theoretical drawdown, and residuals as a CSV file</li>
+      <li><strong>Export Excel</strong> — Downloads an XLSX file with two sheets: one for data and one for results</li>
+    </ul>
+
+    <!-- ========================================= -->
+    <!-- THEORY & METHODS -->
+    <!-- ========================================= -->
+    <h2 id="theory">📚 Theory & Analytical Methods</h2>
+    <p>All methods in AquiPro are based on classical analytical solutions to the groundwater flow equation. Below is the theory behind each method.</p>
+
+    <h3>The Groundwater Flow Equation</h3>
+    <p>For a confined, homogeneous, isotropic aquifer with radial flow to a well, the governing equation is:</p>
+    <div class="eq-box">
+      \( \frac{\partial^2 s}{\partial r^2} + \frac{1}{r}\frac{\partial s}{\partial r} = \frac{S}{T}\frac{\partial s}{\partial t} \)
+    </div>
+    <p>where <em>s</em> is drawdown (m), <em>r</em> is radial distance (m), <em>t</em> is time (s), <em>T</em> is transmissivity (m²/s), and <em>S</em> is storativity (dimensionless).</p>
+
+    <!-- THEIS -->
+    <h3 id="theis">1. Theis Method (1935)</h3>
+    <span class="tag tag-confined">Confined</span>
+    <p>Charles Vernon Theis derived the first transient solution for flow to a well in a confined aquifer, drawing an analogy with heat conduction.</p>
+
+    <h4>Assumptions</h4>
+    <ul>
+      <li>Aquifer is confined, homogeneous, isotropic, and of infinite lateral extent</li>
+      <li>Well is fully penetrating and has infinitesimal diameter</li>
+      <li>Pumping rate Q is constant</li>
+      <li>Water is released instantaneously from elastic storage</li>
+      <li>No recharge or leakage</li>
+    </ul>
+
+    <h4>The Theis Equation</h4>
+    <div class="eq-box">
+      \( s = \frac{Q}{4\pi T} W(u) \)
+    </div>
+    <p>where W(u) is the <strong>Theis well function</strong> (exponential integral):</p>
+    <div class="eq-box">
+      \( W(u) = \int_u^{\infty} \frac{e^{-y}}{y}\,dy = -\gamma - \ln u + \sum_{n=1}^{\infty} \frac{(-1)^{n+1} u^n}{n \cdot n!} \)
+    </div>
+    <p>and the dimensionless parameter u is:</p>
+    <div class="eq-box">
+      \( u = \frac{r^2 S}{4 T t} \)
+    </div>
+    <p>Here, γ = 0.5772 is the Euler-Mascheroni constant. AquiPro uses a 30-term series expansion for small u and a continued-fraction approximation for large u, ensuring at least 6 significant digits of precision.</p>
+
+    <h4>How to Apply</h4>
+    <ol>
+      <li>Plot observed s vs. t on <strong>log-log</strong> axes</li>
+      <li>Overlay the theoretical W(u) vs. 1/u type curve</li>
+      <li>Match the curves by adjusting T and S (or use Auto-Fit)</li>
+      <li>Read off T and S from the match</li>
+    </ol>
+
+    <!-- COOPER-JACOB -->
+    <h3 id="cooper-jacob">2. Cooper-Jacob Method (1946)</h3>
+    <span class="tag tag-confined">Confined</span>
+    <p>Cooper and Jacob showed that for large values of time (when u < 0.05), the Theis well function can be approximated by its first two terms:</p>
+    <div class="eq-box">
+      \( s \approx \frac{Q}{4\pi T} \left[ -0.5772 - \ln\!\left(\frac{r^2 S}{4Tt}\right) \right] = \frac{2.3\,Q}{4\pi T} \log\!\left(\frac{2.25\,Tt}{r^2 S}\right) \)
+    </div>
+    <p>This means that on a <strong>semi-log plot</strong> (s vs. log t), the drawdown data should fall along a <strong>straight line</strong> at late time.</p>
+
+    <h4>How to Apply</h4>
+    <ol>
+      <li>Plot s vs. log(t) on <strong>semi-log</strong> axes</li>
+      <li>Identify the straight-line portion (late-time data where u < 0.05)</li>
+      <li>Determine the <strong>slope</strong> Δs per log cycle</li>
+      <li>Compute: \( T = \frac{2.3\,Q}{4\pi\,\Delta s} \)</li>
+      <li>Extend the line to s = 0 to find t₀, then: \( S = \frac{2.25\,T\,t_0}{r^2} \)</li>
+    </ol>
+
+    <div class="warning">
+      <strong>⚠️ Validity Check:</strong> Cooper-Jacob is only valid when u < 0.05. Early-time data (high u) will deviate from the straight line. Always verify using the diagnostic plot.
+    </div>
+
+    <!-- HANTUSH -->
+    <h3 id="hantush">3. Hantush-Jacob Method (1955)</h3>
+    <span class="tag tag-leaky">Leaky Confined</span>
+    <p>For a <strong>leaky (semi-confined) aquifer</strong>, water seeps vertically through the overlying or underlying aquitard during pumping. Hantush and Jacob derived:</p>
+    <div class="eq-box">
+      \( s = \frac{Q}{4\pi T} W\!\left(u,\, \frac{r}{B}\right) \)
+    </div>
+    <p>where W(u, r/B) is the <strong>Hantush well function</strong>:</p>
+    <div class="eq-box">
+      \( W\!\left(u,\, \frac{r}{B}\right) = \int_u^{\infty} \frac{1}{y} \exp\!\left(-y - \frac{r^2}{4B^2 y}\right) dy \)
+    </div>
+    <p>and B is the <strong>leakage factor</strong>:</p>
+    <div class="eq-box">
+      \( B = \sqrt{\frac{T\,b'}{K'}} \)
+    </div>
+    <p>where b' is the aquitard thickness and K' is the aquitard vertical hydraulic conductivity. As r/B → 0, the Hantush function reduces to the Theis function (no leakage).</p>
+
+    <h4>How to Apply</h4>
+    <ol>
+      <li>Plot s vs. t on <strong>log-log</strong> axes</li>
+      <li>Select the Hantush-Jacob method in AquiPro</li>
+      <li>Adjust T, S, and the <strong>r/B slider</strong> to match the curve</li>
+      <li>The drawdown will plateau at late time (a key signature of leaky aquifers)</li>
+    </ol>
+
+    <!-- NEUMAN -->
+    <h3 id="neuman">4. Neuman Method (1975)</h3>
+    <span class="tag tag-unconfined">Unconfined</span>
+    <p>In <strong>unconfined aquifers</strong>, the response to pumping occurs in two phases due to <strong>delayed yield</strong> (gravity drainage):</p>
+    <ul>
+      <li><strong>Early time:</strong> Water is released from elastic storage (like a confined aquifer). Drawdown follows a Theis curve governed by S (elastic storativity).</li>
+      <li><strong>Transition:</strong> Drawdown flattens as gravity drainage begins.</li>
+      <li><strong>Late time:</strong> Water drains by gravity from the declining water table. Drawdown follows a second Theis curve governed by Sy (specific yield).</li>
+    </ul>
+
+    <p>Neuman's solution introduces the dimensionless parameter:</p>
+    <div class="eq-box">
+      \( \sigma = \frac{S}{S_y} \)
+    </div>
+    <p>AquiPro approximates the Neuman solution using a dual-Theis approach with a sigmoid transition between early-time (elastic) and late-time (gravity) segments, controlled by σ.</p>
+
+    <h4>Parameters Solved</h4>
+    <ul>
+      <li><strong>T</strong> — Transmissivity (from both early and late segments)</li>
+      <li><strong>S</strong> — Elastic storativity (early time)</li>
+      <li><strong>Sy</strong> — Specific yield (late time, typically 0.01–0.3)</li>
+    </ul>
+
+    <!-- RECOVERY -->
+    <h3 id="recovery">5. Theis Recovery Method (1935)</h3>
+    <span class="tag tag-recovery">Recovery</span>
+    <p>After the pump is shut off, water levels <strong>recover</strong>. The recovery data provides an independent check on the transmissivity. The <strong>residual drawdown</strong> (s') at time t after pump start (where t' = time since pump off) is:</p>
+    <div class="eq-box">
+      \( s' = \frac{Q}{4\pi T} \left[ W(u) - W(u') \right] \approx \frac{2.3\,Q}{4\pi T} \log\!\left(\frac{t}{t'}\right) \)
+    </div>
+    <p>On a <strong>semi-log plot</strong> of s' vs. t/t', the recovery data forms a straight line. The slope gives T. This method is particularly valuable because:</p>
+    <ul>
+      <li>It's less affected by wellbore storage (which occurred during pumping, not recovery)</li>
+      <li>It provides an independent T estimate to cross-check your pumping phase analysis</li>
+      <li>It works even when the pumping rate was not perfectly constant</li>
+    </ul>
+
+    <!-- DERIVATIVE -->
+    <h3 id="derivative">The Bourdet Derivative — A Modern Diagnostic</h3>
+    <p>Introduced by Bourdet et al. (1989), the derivative method revolutionized pumping test interpretation. Rather than guessing which type curve to use, the derivative <strong>reveals the aquifer type</strong> through its characteristic shape.</p>
+
+    <div class="card">
+      <h4 style="margin-top:0">Why is the derivative so powerful?</h4>
+      <ul>
+        <li>For a Theis model, the derivative equals \( \frac{Q}{4\pi T} \) — a constant. This means a flat derivative directly gives you T.</li>
+        <li>Boundary effects, leakage, and delayed yield produce <em>distinct</em> departures from the flat line, making them easy to identify.</li>
+        <li>Multiple flow regimes (wellbore storage → radial flow → boundary effects) appear as distinct segments.</li>
+      </ul>
+    </div>
+
+    <!-- PARAMETERS -->
+    <h2 id="parameters">📏 Understanding the Key Parameters</h2>
+
+    <table>
+      <thead><tr><th>Parameter</th><th>Symbol</th><th>Unit</th><th>Physical Meaning</th><th>Typical Range</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Transmissivity</strong></td><td>T</td><td>m²/day</td><td>Rate at which water is transmitted through a unit width of the aquifer. T = K × b.</td><td>1–10,000 m²/day</td></tr>
+        <tr><td><strong>Storativity</strong></td><td>S</td><td>dimensionless</td><td>Volume of water released per unit area per unit drop in head. For confined aquifers, very small.</td><td>10⁻⁵ to 10⁻³ (confined)</td></tr>
+        <tr><td><strong>Hydraulic Conductivity</strong></td><td>K</td><td>m/day</td><td>Ease with which water flows through the aquifer material. K = T / b.</td><td>0.001–1,000 m/day</td></tr>
+        <tr><td><strong>Specific Storage</strong></td><td>Ss</td><td>1/m</td><td>Storage per unit volume. Ss = S / b.</td><td>10⁻⁶ to 10⁻⁴ m⁻¹</td></tr>
+        <tr><td><strong>Specific Yield</strong></td><td>Sy</td><td>dimensionless</td><td>Volume of water drained by gravity per unit volume of aquifer. Only for unconfined.</td><td>0.01–0.30</td></tr>
+        <tr><td><strong>Leakage Factor</strong></td><td>B</td><td>m</td><td>Characterizes leakage through the confining layer. B = √(Tb'/K').</td><td>10–10,000 m</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ROI -->
+    <h2 id="roi">🎯 Radius of Influence</h2>
+    <p>The <strong>radius of influence (R)</strong> is the distance from the pumping well beyond which drawdown is negligible. AquiPro uses the <strong>Cooper-Jacob approximation</strong>:</p>
+    <div class="eq-box">
+      \( R = \sqrt{\frac{2.25\,T\,t}{S}} \)
+    </div>
+    <p>where t is the total pumping duration. This is an estimate — in reality, the cone of depression extends asymptotically.</p>
+
+    <div class="note">
+      <strong>📝 Practical Note:</strong> The ROI grows with the square root of time — doubling the pumping time only increases the ROI by about 41%. This has important implications for long-duration tests.
+    </div>
+
+    <p>AquiPro also computes <strong>drawdown contour rings</strong> by solving the Theis equation inversely — finding the distance r at which a specific drawdown value (0.1, 0.5, 1, 2, 5 m) would occur.</p>
+
+    <!-- TIPS -->
+    <h2 id="tips">💡 Tips & Best Practices</h2>
+
+    <div class="card">
+      <h4 style="margin-top:0">Data Collection</h4>
+      <ul>
+        <li>Record data at <strong>logarithmically spaced intervals</strong> — more frequent in early time (every 30s for the first 10 min), less frequent later (every 30 min after 6 hours)</li>
+        <li>Always measure the <strong>static water level</strong> before pumping starts</li>
+        <li>Monitor for at least <strong>24–72 hours</strong> for reliable late-time parameters</li>
+        <li>Record the <strong>recovery</strong> after shutting off the pump — it provides a free second analysis</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h4 style="margin-top:0">Analysis Workflow</h4>
+      <ol>
+        <li><strong>Always start with the Diagnostic Plot.</strong> Don't guess the aquifer type — let the derivative tell you.</li>
+        <li><strong>Use preprocessing wisely.</strong> Remove obvious outliers, but don't over-smooth — you may lose real signal.</li>
+        <li><strong>Try multiple methods.</strong> Compare T and S from Theis, Cooper-Jacob, and Recovery. If they agree, you have confidence in the result.</li>
+        <li><strong>Check the residuals.</strong> Random scatter means a good fit. Systematic patterns mean the model is wrong.</li>
+        <li><strong>Set a good initial guess</strong> before auto-fit. The optimizer converges faster and more reliably.</li>
+        <li><strong>Run sensitivity analysis</strong> to understand parameter uncertainty.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h4 style="margin-top:0">Common Pitfalls</h4>
+      <ul>
+        <li>🚫 Ignoring wellbore storage effects in early-time data</li>
+        <li>🚫 Using Cooper-Jacob when u > 0.05 (the approximation breaks down)</li>
+        <li>🚫 Assuming confined conditions when the aquifer is actually unconfined</li>
+        <li>🚫 Forgetting to account for partial penetration effects</li>
+        <li>🚫 Using only one observation well — multiple wells give much better constraints</li>
+      </ul>
+    </div>
+
+    <!-- SHORTCUTS -->
+    <h2 id="shortcuts">⌨️ Keyboard Shortcuts</h2>
+    <table>
+      <thead><tr><th>Shortcut</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code>Ctrl + S</code></td><td>Save project as JSON file</td></tr>
+        <tr><td><code>Ctrl + Enter</code></td><td>Run Auto-Fit optimizer</td></tr>
+        <tr><td><code>Ctrl + P</code></td><td>Generate PDF report</td></tr>
+        <tr><td><code>Ctrl + D</code></td><td>Toggle dark/light mode</td></tr>
+        <tr><td><code>1</code> – <code>6</code></td><td>Switch between tabs</td></tr>
+        <tr><td><code>?</code></td><td>Show keyboard shortcuts modal</td></tr>
+        <tr><td><code>Escape</code></td><td>Blur current input field</td></tr>
+      </tbody>
+    </table>
+
+    <!-- GLOSSARY -->
+    <h2 id="glossary">📖 Glossary</h2>
+    <table>
+      <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Aquifer</strong></td><td>A geological formation that stores and transmits groundwater in usable quantities</td></tr>
+        <tr><td><strong>Aquitard</strong></td><td>A low-permeability layer that restricts but does not completely prevent water flow</td></tr>
+        <tr><td><strong>Cone of Depression</strong></td><td>The cone-shaped drop in the water table/piezometric surface around a pumping well</td></tr>
+        <tr><td><strong>Confined Aquifer</strong></td><td>An aquifer bounded above and below by aquitards, where water is under pressure</td></tr>
+        <tr><td><strong>Drawdown (s)</strong></td><td>The decline in water level caused by pumping, measured as the difference from the static level</td></tr>
+        <tr><td><strong>Delayed Yield</strong></td><td>The slow release of water by gravity drainage in unconfined aquifers</td></tr>
+        <tr><td><strong>Fully Penetrating Well</strong></td><td>A well whose screen extends through the entire saturated thickness of the aquifer</td></tr>
+        <tr><td><strong>Haversine Formula</strong></td><td>A spherical geometry formula for computing the distance between two lat/long coordinates</td></tr>
+        <tr><td><strong>IARF</strong></td><td>Infinite-Acting Radial Flow — the regime where the cone of depression has not yet reached any boundary</td></tr>
+        <tr><td><strong>Leakage Factor (B)</strong></td><td>A parameter characterizing the rate at which water leaks through a confining layer; B = √(Tb'/K')</td></tr>
+        <tr><td><strong>Levenberg-Marquardt</strong></td><td>A nonlinear least-squares optimization algorithm that blends gradient descent and Gauss-Newton methods</td></tr>
+        <tr><td><strong>Observation Well</strong></td><td>A well used to monitor water levels during a pumping test (not pumped)</td></tr>
+        <tr><td><strong>Piezometric Surface</strong></td><td>The imaginary surface to which water would rise in a tightly cased well in a confined aquifer</td></tr>
+        <tr><td><strong>Pumping Well</strong></td><td>The well from which water is extracted during a pumping test</td></tr>
+        <tr><td><strong>Residual Drawdown</strong></td><td>Drawdown remaining after the pump is shut off, used in recovery analysis</td></tr>
+        <tr><td><strong>RMSE</strong></td><td>Root Mean Square Error — a measure of the average difference between observed and predicted values</td></tr>
+        <tr><td><strong>Specific Capacity</strong></td><td>The pumping rate divided by drawdown (Q/s), a rough indicator of well productivity</td></tr>
+        <tr><td><strong>Storativity (S)</strong></td><td>The volume of water released from storage per unit area per unit decline in hydraulic head</td></tr>
+        <tr><td><strong>Transmissivity (T)</strong></td><td>The rate of flow through a unit width of aquifer for a unit hydraulic gradient; T = K × b</td></tr>
+        <tr><td><strong>Type Curve</strong></td><td>A theoretical curve (e.g., Theis curve) plotted on dimensionless axes, used for curve matching</td></tr>
+        <tr><td><strong>Unconfined Aquifer</strong></td><td>An aquifer whose upper boundary is the water table (open to atmospheric pressure)</td></tr>
+        <tr><td><strong>Well Function W(u)</strong></td><td>The Theis well function — the exponential integral that describes drawdown in a confined aquifer</td></tr>
+        <tr><td><strong>Wellbore Storage</strong></td><td>The initial release of water from the well casing itself rather than from the aquifer</td></tr>
+      </tbody>
+    </table>
+
+    <!-- REFERENCES -->
+    <h2 id="references">📚 References</h2>
+    <ul>
+      <li>Theis, C.V. (1935). The relation between the lowering of the piezometric surface and the rate and duration of discharge of a well using ground-water storage. <em>Transactions, American Geophysical Union</em>, 16(2), 519–524.</li>
+      <li>Cooper, H.H. and Jacob, C.E. (1946). A generalized graphical method for evaluating formation constants and summarizing well-field history. <em>Transactions, American Geophysical Union</em>, 27(4), 526–534.</li>
+      <li>Hantush, M.S. and Jacob, C.E. (1955). Non-steady radial flow in an infinite leaky aquifer. <em>Transactions, American Geophysical Union</em>, 36(1), 95–100.</li>
+      <li>Neuman, S.P. (1975). Analysis of pumping test data from anisotropic unconfined aquifers considering delayed gravity response. <em>Water Resources Research</em>, 11(2), 329–342.</li>
+      <li>Bourdet, D., Ayoub, J.A. and Pirard, Y.M. (1989). Use of pressure derivative in well test interpretation. <em>SPE Formation Evaluation</em>, 4(2), 293–302.</li>
+      <li>Kruseman, G.P. and de Ridder, N.A. (1994). <em>Analysis and Evaluation of Pumping Test Data</em>. ILRI Publication 47, 2nd ed.</li>
+      <li>Fetter, C.W. (2001). <em>Applied Hydrogeology</em>. 4th ed., Prentice Hall.</li>
+    </ul>
+
+    <!-- FOOTER -->
+    <div class="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700 text-center">
+      <div class="mb-3">
+        <span class="text-lg font-bold"><span class="text-blue-600">Aqui</span><span class="text-cyan-500">Pro</span></span>
+        <span class="text-sm text-slate-400 ml-2">Documentation & Groundwater Analysis Guide</span>
+      </div>
+      <a href="https://ahmednasr.fekrlab.com/aquipro" class="btn btn-primary">← Back to AquiPro App</a>
+      <p class="text-xs text-slate-400 mt-4">Built with 💧 for the groundwater community</p>
+    </div>
+
+  </article>
+</div>
+
+<script>
+// Theme toggle
+let isDark = false;
+function toggleTheme() {
+  isDark = !isDark;
+  document.documentElement.className = isDark ? 'dark' : 'light';
+  localStorage.setItem('ptaTheme', isDark ? 'dark' : 'light');
+}
+if (localStorage.getItem('ptaTheme') === 'dark') toggleTheme();
+
+// Sidebar active highlight on scroll
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      const link = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('h2[id], h3[id]').forEach(h => observer.observe(h));
+
+// Render KaTeX equations
+document.addEventListener('DOMContentLoaded', () => {
+  renderMathInElement(document.body, {
+    delimiters: [
+      { left: '\\(', right: '\\)', display: false },
+      { left: '\\[', right: '\\]', display: true },
+    ],
+    throwOnError: false
+  });
+});
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,2411 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquiPro — Pumping Test Analyzer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.2.1/math.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' },
+        accent: { 400:'#34d399',500:'#10b981',600:'#059669' }
+      }
+    }
+  }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;transition:background .3s,color .3s}
+.dark body,.dark{background:#0f172a;color:#e2e8f0}
+.light body,.light{background:#f8fafc;color:#1e293b}
+.tab-btn{position:relative;padding:.625rem 1rem;font-size:.8125rem;font-weight:500;border-radius:.5rem;transition:all .2s;cursor:pointer;white-space:nowrap}
+.tab-btn.active{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.35)}
+.tab-btn:not(.active){color:#64748b}.tab-btn:not(.active):hover{background:#e2e8f0;color:#334155}
+.dark .tab-btn:not(.active):hover{background:#1e293b;color:#cbd5e1}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;padding:1.25rem;transition:all .3s}
+.dark .card{background:#1e293b;border-color:#334155}
+.input-field{width:100%;padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.8125rem;transition:all .2s;background:transparent}
+.input-field:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.dark .input-field{border-color:#475569;color:#e2e8f0}
+.btn{padding:.5rem 1rem;border-radius:.5rem;font-size:.8125rem;font-weight:500;cursor:pointer;transition:all .2s;border:none;display:inline-flex;align-items:center;gap:.375rem}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}.btn-primary:hover{box-shadow:0 4px 12px rgba(59,130,246,.4);transform:translateY(-1px)}
+.btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff}.btn-success:hover{box-shadow:0 4px 12px rgba(16,185,129,.4)}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.btn-outline{border:1px solid #cbd5e1;background:transparent;color:#475569}.btn-outline:hover{border-color:#3b82f6;color:#3b82f6}
+.dark .btn-outline{border-color:#475569;color:#94a3b8}.dark .btn-outline:hover{border-color:#60a5fa;color:#60a5fa}
+.select-field{padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.8125rem;background:transparent;cursor:pointer}
+.dark .select-field{border-color:#475569;color:#e2e8f0;background:#1e293b}
+.select-field:focus{outline:none;border-color:#3b82f6}
+label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;display:block}
+.dark label{color:#94a3b8}
+.tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;border-radius:50%;background:#e2e8f0;color:#64748b;font-size:.625rem;cursor:help;margin-left:.25rem;position:relative}
+.dark .tooltip-icon{background:#334155;color:#94a3b8}
+.tooltip-icon:hover .tooltip-text{display:block}
+.tooltip-text{display:none;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;padding:.5rem .75rem;border-radius:.5rem;font-size:.6875rem;font-weight:400;width:200px;z-index:1000;line-height:1.4;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.toast-container{position:fixed;top:1rem;right:1rem;z-index:10000;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast{pointer-events:auto;padding:.75rem 1rem;border-radius:.5rem;font-size:.8125rem;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease;display:flex;align-items:center;gap:.5rem;max-width:360px}
+.toast-success{background:#059669;color:#fff}.toast-error{background:#dc2626;color:#fff}
+.toast-warning{background:#d97706;color:#fff}.toast-info{background:#2563eb;color:#fff}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+.data-table{width:100%;border-collapse:collapse;font-size:.8125rem}
+.data-table th{background:#f1f5f9;padding:.5rem;text-align:left;font-weight:600;border-bottom:2px solid #e2e8f0}
+.dark .data-table th{background:#0f172a;border-color:#334155}
+.data-table td{padding:.375rem .5rem;border-bottom:1px solid #f1f5f9}
+.dark .data-table td{border-color:#1e293b}
+.data-table input{width:100%;padding:.25rem .5rem;border:1px solid transparent;border-radius:.25rem;font-size:.8125rem;background:transparent;text-align:right}
+.data-table input:focus{border-color:#3b82f6;outline:none;background:#eff6ff}
+.dark .data-table input{color:#e2e8f0}.dark .data-table input:focus{background:#1e3a5c}
+.data-table tr.outlier{background:#fef2f2}.dark .data-table tr.outlier{background:#451a1a}
+.spinner{width:1.25rem;height:1.25rem;border:2px solid #e2e8f0;border-top:2px solid #3b82f6;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pulsing-marker{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}
+.drag-zone{border:2px dashed #cbd5e1;border-radius:.75rem;padding:2rem;text-align:center;transition:all .2s;cursor:pointer}
+.drag-zone:hover,.drag-zone.dragover{border-color:#3b82f6;background:#eff6ff}
+.dark .drag-zone{border-color:#475569}.dark .drag-zone:hover,.dark .drag-zone.dragover{border-color:#60a5fa;background:#1e3a5c}
+.results-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.25rem .625rem;border-radius:1rem;font-size:.75rem;font-weight:600}
+.slider-container{position:relative;padding:.25rem 0}
+.slider-container input[type=range]{width:100%;height:6px;appearance:none;background:#e2e8f0;border-radius:3px;outline:none}
+.dark .slider-container input[type=range]{background:#334155}
+.slider-container input[type=range]::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:#3b82f6;cursor:pointer;box-shadow:0 2px 6px rgba(59,130,246,.4)}
+#map,.map-container{border-radius:.75rem;overflow:hidden;z-index:1}
+.leaflet-container{font-family:'Inter',sans-serif}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+.dark ::-webkit-scrollbar-thumb{background:#475569}
+.tab-content{display:none}.tab-content.active{display:block}
+.badge-t,.badge-s{font-size:.7rem;padding:.125rem .5rem;border-radius:1rem;font-weight:600}
+.badge-t{background:#dbeafe;color:#1d4ed8}.dark .badge-t{background:#1e3a8a;color:#93c5fd}
+.badge-s{background:#d1fae5;color:#065f46}.dark .badge-s{background:#064e3b;color:#6ee7b7}
+.section-title{font-size:.9375rem;font-weight:600;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.dark .section-title{color:#e2e8f0}
+.method-card{border:1px solid #e2e8f0;border-radius:.5rem;padding:.75rem;cursor:pointer;transition:all .2s}
+.method-card:hover{border-color:#3b82f6;box-shadow:0 2px 8px rgba(59,130,246,.15)}
+.method-card.selected{border-color:#3b82f6;background:#eff6ff}
+.dark .method-card{border-color:#334155}.dark .method-card:hover{border-color:#60a5fa}
+.dark .method-card.selected{border-color:#60a5fa;background:#1e3a5c}
+@media(max-width:768px){.tab-nav{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.25rem}.tab-btn{font-size:.75rem;padding:.5rem .75rem}}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- TOAST CONTAINER -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- TOP TOOLBAR -->
+<header class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5">
+  <div class="max-w-[1400px] mx-auto flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/30">💧</div>
+      <div>
+        <input id="projectNameToolbar" type="text" value="Untitled Project" class="text-sm font-semibold bg-transparent border-none outline-none dark:text-white" style="width:180px">
+        <div class="text-[.65rem] text-slate-400 tracking-wide"><strong class="text-blue-500">Aqui</strong><strong class="text-cyan-500">Pro</strong> — Pumping Test Analyzer</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span id="liveT" class="badge-t hidden">T: —</span>
+      <span id="liveS" class="badge-s hidden">S: —</span>
+      <span id="liveMethod" class="text-[.65rem] text-slate-400 hidden"></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="saveProjectJSON()" class="btn btn-outline text-xs" title="Save Project (Ctrl+S)">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+        Save
+      </button>
+      <button onclick="loadProjectJSON()" class="btn btn-outline text-xs" title="Load Project">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Load
+      </button>
+      <a href="https://ahmednasr.fekrlab.com/aquipro/docs" class="btn btn-outline text-xs" title="Documentation & Guide" target="_blank">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        Docs
+      </a>
+      <button onclick="toggleTheme()" id="themeBtn" class="btn btn-outline text-xs" title="Toggle Theme">
+        <svg id="sunIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg id="moonIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      </button>
+      <button onclick="showShortcuts()" class="btn btn-outline text-xs" title="Keyboard Shortcuts (?)">?</button>
+    </div>
+  </div>
+</header>
+
+<!-- TAB NAVIGATION -->
+<nav class="sticky top-[3.75rem] z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-700">
+  <div class="max-w-[1400px] mx-auto px-4 py-2 tab-nav flex gap-1.5 overflow-x-auto">
+    <button class="tab-btn active" data-tab="setup" onclick="switchTab('setup')">
+      <span class="mr-1">⚙️</span> Project Setup
+    </button>
+    <button class="tab-btn" data-tab="data" onclick="switchTab('data')">
+      <span class="mr-1">📊</span> Data Input
+    </button>
+    <button class="tab-btn" data-tab="diagnostic" onclick="switchTab('diagnostic')">
+      <span class="mr-1">🔍</span> Diagnostic Plot
+    </button>
+    <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')">
+      <span class="mr-1">📐</span> Analysis
+    </button>
+    <button class="tab-btn" data-tab="map" onclick="switchTab('map')">
+      <span class="mr-1">🗺️</span> Map & ROI
+    </button>
+    <button class="tab-btn" data-tab="report" onclick="switchTab('report')">
+      <span class="mr-1">📄</span> Report
+    </button>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="max-w-[1400px] mx-auto px-4 py-4">
+
+<!-- ===== TAB 1: PROJECT SETUP ===== -->
+<div id="tab-setup" class="tab-content active space-y-4">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- Project Metadata -->
+    <div class="card">
+      <div class="section-title">📋 Project Metadata</div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="col-span-2"><label>Project Name</label><input id="projectName" type="text" class="input-field" value="Untitled Project" oninput="document.getElementById('projectNameToolbar').value=this.value;autoSave()"></div>
+        <div><label>Location</label><input id="projLocation" type="text" class="input-field" placeholder="e.g., Site A, Springfield"></div>
+        <div><label>Date</label><input id="projDate" type="date" class="input-field"></div>
+        <div><label>Analyst</label><input id="projAnalyst" type="text" class="input-field" placeholder="Your name"></div>
+        <div class="col-span-2"><label>Notes</label><textarea id="projNotes" class="input-field" rows="2" placeholder="Additional comments..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- Pumping Parameters -->
+    <div class="card">
+      <div class="section-title">💧 Pumping Parameters</div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label>Pumping Rate (Q) <span class="tooltip-icon">?<span class="tooltip-text">Constant volumetric flow rate of water extracted from the well.</span></span></label>
+          <div class="flex gap-2">
+            <input id="pumpRate" type="number" class="input-field" step="any" placeholder="0" oninput="autoSave()">
+            <select id="pumpRateUnit" class="select-field" style="width:100px" onchange="autoSave()">
+              <option value="m3/day">m³/day</option><option value="m3/s">m³/s</option><option value="L/s">L/s</option>
+              <option value="L/min">L/min</option><option value="gpm">gpm</option><option value="ft3/day">ft³/day</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Aquifer Thickness (b) <span class="tooltip-icon">?<span class="tooltip-text">Saturated thickness of the aquifer being tested.</span></span></label>
+          <div class="flex gap-2">
+            <input id="aquiferThickness" type="number" class="input-field" step="any" placeholder="0" oninput="autoSave()">
+            <select id="thicknessUnit" class="select-field" style="width:80px" onchange="autoSave()">
+              <option value="m">m</option><option value="ft">ft</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Static Water Level <span class="tooltip-icon">?<span class="tooltip-text">Pre-pumping water level depth below ground surface.</span></span></label>
+          <div class="flex gap-2">
+            <input id="staticWL" type="number" class="input-field" step="any" placeholder="0">
+            <select id="swlUnit" class="select-field" style="width:80px"><option value="m">m</option><option value="ft">ft</option></select>
+          </div>
+        </div>
+        <div>
+          <label>Screen Top / Bottom <span class="tooltip-icon">?<span class="tooltip-text">Depth interval of the well screen (m bgl).</span></span></label>
+          <div class="flex gap-1">
+            <input id="screenTop" type="number" class="input-field" placeholder="Top" step="any">
+            <input id="screenBot" type="number" class="input-field" placeholder="Bot" step="any">
+          </div>
+        </div>
+        <div>
+          <label>Casing Diameter <span class="tooltip-icon">?<span class="tooltip-text">Inner diameter of the well casing (for wellbore storage).</span></span></label>
+          <div class="flex gap-2">
+            <input id="casingDia" type="number" class="input-field" step="any" placeholder="0">
+            <select id="casingUnit" class="select-field" style="width:80px"><option value="m">m</option><option value="mm">mm</option><option value="in">in</option></select>
+          </div>
+        </div>
+        <div>
+          <label>Aquitard Thickness (b') <span class="tooltip-icon">?<span class="tooltip-text">For leaky aquifer analysis — thickness of confining layer.</span></span></label>
+          <input id="aquitardThick" type="number" class="input-field" step="any" placeholder="Optional">
+        </div>
+        <div>
+          <label>Aquitard K' (m/day) <span class="tooltip-icon">?<span class="tooltip-text">Vertical hydraulic conductivity of the aquitard.</span></span></label>
+          <input id="aquitardK" type="number" class="input-field" step="any" placeholder="Optional">
+        </div>
+        <div>
+          <label>Total Pumping Duration <span class="tooltip-icon">?<span class="tooltip-text">Total time the pump was running (for ROI calculation).</span></span></label>
+          <div class="flex gap-2">
+            <input id="pumpDuration" type="number" class="input-field" step="any" placeholder="0">
+            <select id="durationUnit" class="select-field" style="width:80px"><option value="min">min</option><option value="hr">hr</option><option value="day">day</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Well Coordinates -->
+  <div class="card">
+    <div class="section-title">📍 Well Coordinates</div>
+    <div class="space-y-3">
+      <!-- Pumping Well -->
+      <div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+        <div class="flex items-center gap-2 mb-2 text-sm font-semibold text-red-700 dark:text-red-400">
+          <span class="w-3 h-3 rounded-full bg-red-500 pulsing-marker inline-block"></span> Pumping Well
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div><label>Well ID</label><input id="pwID" type="text" class="input-field" value="PW-1"></div>
+          <div><label>Latitude</label><input id="pwLat" type="number" class="input-field" step="any" placeholder="e.g. 36.75" oninput="onCoordsChange()"></div>
+          <div><label>Longitude</label><input id="pwLng" type="number" class="input-field" step="any" placeholder="e.g. 3.05" oninput="onCoordsChange()"></div>
+          <div><label>Total Depth (m)</label><input id="pwDepth" type="number" class="input-field" step="any" placeholder="0"></div>
+        </div>
+      </div>
+
+      <!-- Observation Wells Container -->
+      <div id="obsWellsContainer">
+        <div class="obs-well-entry p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" data-idx="0">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-400">
+              <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Observation Well #1
+            </div>
+            <button onclick="removeObsWell(this)" class="text-xs text-red-400 hover:text-red-600" style="display:none">✕ Remove</button>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div><label>Well ID</label><input type="text" class="input-field obs-id" value="OW-1"></div>
+            <div><label>Latitude</label><input type="number" class="input-field obs-lat" step="any" placeholder="Lat" oninput="onCoordsChange()"></div>
+            <div><label>Longitude</label><input type="number" class="input-field obs-lng" step="any" placeholder="Lng" oninput="onCoordsChange()"></div>
+            <div><label>Distance (m)</label><input type="number" class="input-field obs-dist" step="any" placeholder="Auto or manual"></div>
+            <div><label>Screen Interval</label><input type="text" class="input-field obs-screen" placeholder="e.g. 20-30m"></div>
+          </div>
+        </div>
+      </div>
+      <button onclick="addObsWell()" class="btn btn-outline text-xs mt-2">+ Add Observation Well</button>
+    </div>
+  </div>
+
+  <!-- Load Example Data -->
+  <div class="flex gap-3 flex-wrap">
+    <button onclick="loadExampleData()" class="btn btn-success">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Load Example Dataset
+    </button>
+    <button onclick="clearAllData()" class="btn btn-outline text-xs">Clear All</button>
+  </div>
+</div>
+
+<!-- ===== TAB 2: DATA INPUT ===== -->
+<div id="tab-data" class="tab-content space-y-4">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- Input Mode Selection -->
+    <div class="lg:col-span-2 card">
+      <div class="section-title">📥 Time-Drawdown Data</div>
+      <div class="flex gap-2 mb-3">
+        <button onclick="setDataMode('upload')" class="btn btn-outline text-xs data-mode-btn active" data-mode="upload">📁 Upload CSV/Excel</button>
+        <button onclick="setDataMode('manual')" class="btn btn-outline text-xs data-mode-btn" data-mode="manual">✏️ Manual Entry</button>
+        <button onclick="setDataMode('paste')" class="btn btn-outline text-xs data-mode-btn" data-mode="paste">📋 Paste Data</button>
+      </div>
+
+      <!-- Upload Mode -->
+      <div id="mode-upload" class="data-mode-content">
+        <div id="dropZone" class="drag-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+          <svg class="w-10 h-10 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <p class="text-sm font-medium text-slate-500">Drag & drop CSV/XLSX file here</p>
+          <p class="text-xs text-slate-400 mt-1">or click to browse</p>
+          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" class="hidden" onchange="handleFile(this.files[0])">
+        </div>
+      </div>
+
+      <!-- Manual Mode -->
+      <div id="mode-manual" class="data-mode-content hidden">
+        <div class="flex gap-2 mb-2">
+          <button onclick="addDataRow()" class="btn btn-outline text-xs">+ Add Row</button>
+          <button onclick="addMultipleRows()" class="btn btn-outline text-xs">+ Add 10 Rows</button>
+          <button onclick="removeLastRow()" class="btn btn-outline text-xs text-red-500">- Remove Last</button>
+          <button onclick="clearDataTable()" class="btn btn-outline text-xs text-red-500">Clear All</button>
+        </div>
+        <div class="overflow-x-auto max-h-[400px] overflow-y-auto border rounded-lg dark:border-slate-600">
+          <table class="data-table" id="dataTable">
+            <thead><tr><th style="width:40px">#</th><th>Time (min)</th><th>Drawdown (m)</th><th style="width:30px"></th></tr></thead>
+            <tbody id="dataBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Paste Mode -->
+      <div id="mode-paste" class="data-mode-content hidden">
+        <textarea id="pasteArea" class="input-field" rows="10" placeholder="Paste tab or comma separated data here...&#10;Time, Drawdown&#10;1, 0.15&#10;2, 0.28&#10;..."></textarea>
+        <button onclick="parsePastedData()" class="btn btn-primary mt-2 text-xs">Parse Data</button>
+      </div>
+
+      <!-- Data Preview Stats -->
+      <div id="dataStats" class="mt-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs hidden">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="dataStatsContent"></div>
+      </div>
+    </div>
+
+    <!-- Preprocessing Panel -->
+    <div class="card">
+      <div class="section-title">🔧 Preprocessing</div>
+      <div class="space-y-3">
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="chkOutlier" onchange="applyPreprocessing()">
+            <span class="text-xs font-medium">Outlier Detection (IQR)</span>
+          </label>
+          <p class="text-[.65rem] text-slate-400 ml-5">Flag and exclude statistical outliers</p>
+        </div>
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="chkSmooth" onchange="applyPreprocessing()">
+            <span class="text-xs font-medium">Data Smoothing</span>
+          </label>
+          <div class="ml-5 mt-1">
+            <label class="text-[.65rem]">Window Size: <span id="smoothWindowVal">3</span></label>
+            <input type="range" id="smoothWindow" min="3" max="11" step="2" value="3" class="w-full" oninput="document.getElementById('smoothWindowVal').textContent=this.value;applyPreprocessing()">
+          </div>
+        </div>
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="chkDetrend" onchange="applyPreprocessing()">
+            <span class="text-xs font-medium">Detrend (Remove WL Trend)</span>
+          </label>
+        </div>
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="chkWBS" onchange="applyPreprocessing()">
+            <span class="text-xs font-medium">Flag Wellbore Storage</span>
+          </label>
+          <p class="text-[.65rem] text-slate-400 ml-5">Detect early-time unit-slope data</p>
+        </div>
+        <hr class="border-slate-200 dark:border-slate-600">
+        <div>
+          <label class="text-xs font-medium mb-1 block">Recovery Data</label>
+          <div class="flex gap-2">
+            <input type="number" id="recoveryTime" class="input-field" placeholder="Pump-off time (min)" step="any">
+          </div>
+          <button onclick="extractRecovery()" class="btn btn-outline text-xs mt-1 w-full">Extract Recovery Phase</button>
+        </div>
+        <hr class="border-slate-200 dark:border-slate-600">
+        <div>
+          <label class="text-xs font-medium mb-1 block">Data Points</label>
+          <div id="pointCount" class="text-lg font-bold text-blue-600 dark:text-blue-400">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 3: DIAGNOSTIC PLOT ===== -->
+<div id="tab-diagnostic" class="tab-content space-y-4">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 card">
+      <div class="section-title">📈 Diagnostic Plot (Bourdet Derivative)</div>
+      <div class="flex gap-2 mb-2 items-center">
+        <label class="text-xs">Derivative Smoothing (L):</label>
+        <input type="range" id="derivL" min="0.1" max="1.0" step="0.05" value="0.3" class="w-32" oninput="document.getElementById('derivLVal').textContent=this.value;updateDiagnosticPlot()">
+        <span id="derivLVal" class="text-xs font-mono">0.3</span>
+        <button onclick="updateDiagnosticPlot()" class="btn btn-primary text-xs ml-auto">Refresh</button>
+      </div>
+      <div id="diagnosticChart" style="width:100%;height:450px;"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">🧪 Aquifer Diagnosis</div>
+      <div id="diagnosisResult" class="space-y-3">
+        <div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+          <p class="text-xs text-amber-600 dark:text-amber-400">Load data and click Refresh to run diagnosis.</p>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="section-title text-xs">📖 Reference Signatures</div>
+        <div class="space-y-2 text-[.65rem] text-slate-500 dark:text-slate-400">
+          <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><strong>Confined:</strong> Derivative stabilizes as horizontal line</div>
+          <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><strong>Unconfined:</strong> Derivative dips then rises (delayed yield hump)</div>
+          <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><strong>Leaky:</strong> Derivative drops toward zero at late time</div>
+          <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><strong>Barrier:</strong> Derivative rises continuously (doubles)</div>
+          <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><strong>Wellbore Storage:</strong> Unit slope at early time in both s and ds/d(lnt)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 4: ANALYSIS ===== -->
+<div id="tab-analysis" class="tab-content space-y-4">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <!-- Method Selection & Controls -->
+    <div class="card space-y-3">
+      <div class="section-title">📐 Analysis Method</div>
+      <select id="analysisMethod" class="select-field w-full" onchange="onMethodChange()">
+        <option value="theis">Confined — Theis (1935)</option>
+        <option value="cooper-jacob">Confined — Cooper-Jacob (1946)</option>
+        <option value="hantush">Leaky — Hantush-Jacob (1955)</option>
+        <option value="neuman">Unconfined — Neuman (1975)</option>
+        <option value="recovery">Recovery — Theis Recovery</option>
+      </select>
+
+      <!-- Parameter Sliders -->
+      <div id="paramControls" class="space-y-3 mt-3">
+        <div>
+          <label>Transmissivity T (m²/day): <span id="tVal" class="font-mono text-blue-600 dark:text-blue-400">100</span></label>
+          <div class="slider-container"><input type="range" id="sliderT" min="-1" max="5" step="0.01" value="2" oninput="onSliderChange()"></div>
+          <div class="flex justify-between text-[.6rem] text-slate-400"><span>0.1</span><span>10</span><span>1000</span><span>100000</span></div>
+        </div>
+        <div>
+          <label>Storativity S: <span id="sVal" class="font-mono text-green-600 dark:text-green-400">1e-4</span></label>
+          <div class="slider-container"><input type="range" id="sliderS" min="-7" max="-1" step="0.01" value="-4" oninput="onSliderChange()"></div>
+          <div class="flex justify-between text-[.6rem] text-slate-400"><span>1e-7</span><span>1e-4</span><span>0.1</span></div>
+        </div>
+        <div id="leakageControl" class="hidden">
+          <label>Leakage r/B: <span id="rbVal" class="font-mono text-purple-600 dark:text-purple-400">0.1</span></label>
+          <div class="slider-container"><input type="range" id="sliderRB" min="0.01" max="3" step="0.01" value="0.1" oninput="onSliderChange()"></div>
+        </div>
+        <div id="neumanControl" class="hidden">
+          <label>Specific Yield Sy: <span id="syVal" class="font-mono text-orange-600 dark:text-orange-400">0.1</span></label>
+          <div class="slider-container"><input type="range" id="sliderSy" min="-3" max="-0.3" step="0.01" value="-1" oninput="onSliderChange()"></div>
+          <label class="mt-2">σ (= S/Sy): <span id="sigmaVal" class="font-mono">0.001</span></label>
+        </div>
+      </div>
+
+      <hr class="border-slate-200 dark:border-slate-600">
+
+      <!-- Fitting -->
+      <div>
+        <button onclick="autoFit()" class="btn btn-primary w-full" id="autoFitBtn">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Auto-Fit (Levenberg-Marquardt)
+        </button>
+        <div class="flex gap-2 mt-2">
+          <button onclick="setAxisMode('loglog')" class="btn btn-outline text-xs flex-1 axis-btn active" data-axis="loglog">Log-Log</button>
+          <button onclick="setAxisMode('semilog')" class="btn btn-outline text-xs flex-1 axis-btn" data-axis="semilog">Semi-Log</button>
+          <button onclick="setAxisMode('linear')" class="btn btn-outline text-xs flex-1 axis-btn" data-axis="linear">Linear</button>
+        </div>
+      </div>
+
+      <hr class="border-slate-200 dark:border-slate-600">
+
+      <!-- Results -->
+      <div id="resultsPanel" class="space-y-2">
+        <div class="section-title text-sm">📊 Results</div>
+        <div id="resultsContent" class="space-y-1 text-xs">
+          <p class="text-slate-400">Run analysis to see results.</p>
+        </div>
+      </div>
+
+      <!-- Sensitivity Analysis -->
+      <hr class="border-slate-200 dark:border-slate-600">
+      <div>
+        <button onclick="runSensitivity()" class="btn btn-outline w-full text-xs">📊 Sensitivity Analysis</button>
+      </div>
+
+      <!-- Drawdown Prediction -->
+      <hr class="border-slate-200 dark:border-slate-600">
+      <div>
+        <label>Predict Drawdown at Time (min):</label>
+        <div class="flex gap-2">
+          <input type="number" id="predictTime" class="input-field" placeholder="e.g. 10000" step="any">
+          <button onclick="predictDrawdown()" class="btn btn-primary text-xs">Predict</button>
+        </div>
+        <div id="predictionResult" class="text-xs mt-1 font-medium text-blue-600 dark:text-blue-400"></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="lg:col-span-2 space-y-4">
+      <div class="card">
+        <div id="analysisChart" style="width:100%;height:420px;"></div>
+      </div>
+      <div class="card">
+        <div class="section-title text-sm">Residuals</div>
+        <div id="residualChart" style="width:100%;height:180px;"></div>
+      </div>
+      <div id="sensitivityCard" class="card hidden">
+        <div class="section-title text-sm">📊 Sensitivity Analysis</div>
+        <div id="sensitivityChart" style="width:100%;height:300px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 5: MAP & ROI ===== -->
+<div id="tab-map" class="tab-content space-y-4">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 card" style="padding:0;overflow:hidden">
+      <div id="map" style="width:100%;height:550px;"></div>
+    </div>
+    <div class="card space-y-3">
+      <div class="section-title">🗺️ Map Controls</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Click on the map to place/move wells. Select which well to place below.</div>
+      <select id="mapClickMode" class="select-field w-full">
+        <option value="pw">Place Pumping Well</option>
+        <option value="ow0">Place Observation Well #1</option>
+      </select>
+      <hr class="border-slate-200 dark:border-slate-600">
+      <div class="section-title text-sm">📏 Radius of Influence</div>
+      <div id="roiInfo" class="text-xs space-y-1">
+        <p class="text-slate-400">Run analysis first to calculate ROI.</p>
+      </div>
+      <button onclick="updateROI()" class="btn btn-primary w-full text-xs">Update ROI on Map</button>
+      <hr class="border-slate-200 dark:border-slate-600">
+      <div class="section-title text-sm">🎯 Drawdown Contours</div>
+      <label class="flex items-center gap-2 cursor-pointer text-xs">
+        <input type="checkbox" id="chkContours" onchange="updateROI()">
+        Show Contour Rings (0.1, 0.5, 1, 2, 5 m)
+      </label>
+      <hr class="border-slate-200 dark:border-slate-600">
+      <div class="section-title text-sm">📐 Distance Measurement</div>
+      <div id="distInfo" class="text-xs text-slate-400">Click two points on the map to measure.</div>
+      <button onclick="startMeasure()" class="btn btn-outline w-full text-xs">🔧 Start Ruler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB 6: REPORT ===== -->
+<div id="tab-report" class="tab-content space-y-4">
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-title mb-0">📄 Report Generation</div>
+      <div class="flex gap-2">
+        <button onclick="exportCSV()" class="btn btn-outline text-xs">📊 Export CSV</button>
+        <button onclick="exportExcel()" class="btn btn-outline text-xs">📗 Export Excel</button>
+        <button onclick="generatePDF()" class="btn btn-success" id="pdfBtn">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Generate PDF Report
+        </button>
+      </div>
+    </div>
+    <div id="reportPreview" class="p-6 bg-white dark:bg-slate-800 rounded-lg border dark:border-slate-600 min-h-[500px]">
+      <div class="text-center text-slate-400 py-12">
+        <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <p class="text-sm font-medium">Report Preview</p>
+        <p class="text-xs mt-1">Complete your analysis to preview the report here.</p>
+        <button onclick="buildReportPreview()" class="btn btn-primary text-xs mt-4">Build Preview</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- SHORTCUTS MODAL -->
+<div id="shortcutsModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 backdrop-blur-sm" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="card max-w-md w-full mx-4">
+    <div class="flex items-center justify-between mb-3">
+      <div class="section-title mb-0">⌨️ Keyboard Shortcuts</div>
+      <button onclick="document.getElementById('shortcutsModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+    </div>
+    <div class="space-y-1 text-xs">
+      <div class="flex justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800"><span>Save Project</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">Ctrl+S</kbd></div>
+      <div class="flex justify-between p-1.5 rounded"><span>Run Auto-Fit</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">Ctrl+Enter</kbd></div>
+      <div class="flex justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800"><span>Generate PDF</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">Ctrl+P</kbd></div>
+      <div class="flex justify-between p-1.5 rounded"><span>Toggle Theme</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">Ctrl+D</kbd></div>
+      <div class="flex justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800"><span>Show Shortcuts</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">?</kbd></div>
+      <div class="flex justify-between p-1.5 rounded"><span>Navigate Tabs</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">1-6</kbd></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// STATE MANAGEMENT
+// =============================================================================
+const APP = {
+  data: [],          // [{t, s}] raw time-drawdown
+  processed: [],     // after preprocessing
+  recovery: [],      // [{tOverTp, sp}] recovery data
+  results: {},       // {T, S, Sy, RMSE, R2, NSE, MAE, ROI, method}
+  allResults: [],    // history of results for comparison
+  axisMode: 'loglog',
+  obsWellCount: 1,
+  measureMode: false,
+  measurePoints: [],
+  mapMarkers: { pw: null, ow: [], roi: null, contours: [], measure: [] },
+  leafletMap: null,
+  isDark: false,
+};
+
+// =============================================================================
+// TOAST NOTIFICATIONS
+// =============================================================================
+function toast(msg, type='info', duration=3000) {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  const icons = { success:'✓', error:'✕', warning:'⚠', info:'ℹ' };
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span>${icons[type]||'ℹ'}</span><span>${msg}</span>`;
+  c.appendChild(el);
+  setTimeout(() => { el.style.animation='slideOut .3s ease forwards'; setTimeout(() => el.remove(), 300); }, duration);
+}
+
+// =============================================================================
+// THEME
+// =============================================================================
+function toggleTheme() {
+  APP.isDark = !APP.isDark;
+  document.documentElement.className = APP.isDark ? 'dark' : 'light';
+  document.getElementById('sunIcon').classList.toggle('hidden', APP.isDark);
+  document.getElementById('moonIcon').classList.toggle('hidden', !APP.isDark);
+  localStorage.setItem('ptaTheme', APP.isDark ? 'dark' : 'light');
+  if (APP.leafletMap) setTimeout(() => APP.leafletMap.invalidateSize(), 100);
+  replotAll();
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem('ptaTheme');
+  if (saved === 'dark') toggleTheme();
+}
+
+// =============================================================================
+// TAB NAVIGATION
+// =============================================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
+
+  if (name === 'map') setTimeout(() => { if (APP.leafletMap) APP.leafletMap.invalidateSize(); }, 100);
+  if (name === 'diagnostic') setTimeout(() => updateDiagnosticPlot(), 100);
+  if (name === 'analysis') setTimeout(() => updateAnalysisPlot(), 100);
+}
+
+// =============================================================================
+// UNIT CONVERSION — normalize to SI (m, s, m³/s)
+// =============================================================================
+const UNITS = {
+  flow: { 'm3/day': 1/86400, 'm3/s': 1, 'L/s': 0.001, 'L/min': 1/60000, 'gpm': 6.309e-5, 'ft3/day': 3.2774e-7 },
+  length: { 'm': 1, 'ft': 0.3048, 'mm': 0.001, 'in': 0.0254 },
+  time: { 'min': 60, 'hr': 3600, 'day': 86400 }
+};
+
+function getQ_m3s() {
+  const val = parseFloat(document.getElementById('pumpRate').value) || 0;
+  const unit = document.getElementById('pumpRateUnit').value;
+  return val * UNITS.flow[unit];
+}
+
+function getQ_m3day() { return getQ_m3s() * 86400; }
+
+function getB_m() {
+  const val = parseFloat(document.getElementById('aquiferThickness').value) || 0;
+  const unit = document.getElementById('thicknessUnit').value;
+  return val * UNITS.length[unit];
+}
+
+function getR_m() {
+  const entries = document.querySelectorAll('.obs-well-entry');
+  if (!entries.length) return 100;
+  const distEl = entries[0].querySelector('.obs-dist');
+  return parseFloat(distEl.value) || 100;
+}
+
+function getPumpDuration_s() {
+  const val = parseFloat(document.getElementById('pumpDuration').value) || 0;
+  const unit = document.getElementById('durationUnit').value;
+  return val * UNITS.time[unit];
+}
+
+// =============================================================================
+// HAVERSINE DISTANCE
+// =============================================================================
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function onCoordsChange() {
+  const pwLat = parseFloat(document.getElementById('pwLat').value);
+  const pwLng = parseFloat(document.getElementById('pwLng').value);
+  if (isNaN(pwLat) || isNaN(pwLng)) return;
+
+  document.querySelectorAll('.obs-well-entry').forEach(entry => {
+    const lat = parseFloat(entry.querySelector('.obs-lat').value);
+    const lng = parseFloat(entry.querySelector('.obs-lng').value);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      const dist = haversine(pwLat, pwLng, lat, lng);
+      entry.querySelector('.obs-dist').value = dist.toFixed(2);
+    }
+  });
+
+  updateMapMarkers();
+  autoSave();
+}
+
+// =============================================================================
+// OBSERVATION WELL MANAGEMENT
+// =============================================================================
+function addObsWell() {
+  APP.obsWellCount++;
+  const idx = APP.obsWellCount - 1;
+  const container = document.getElementById('obsWellsContainer');
+  const div = document.createElement('div');
+  div.className = 'obs-well-entry p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 mt-2';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-400">
+        <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Observation Well #${APP.obsWellCount}
+      </div>
+      <button onclick="removeObsWell(this)" class="text-xs text-red-400 hover:text-red-600">✕ Remove</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div><label>Well ID</label><input type="text" class="input-field obs-id" value="OW-${APP.obsWellCount}"></div>
+      <div><label>Latitude</label><input type="number" class="input-field obs-lat" step="any" placeholder="Lat" oninput="onCoordsChange()"></div>
+      <div><label>Longitude</label><input type="number" class="input-field obs-lng" step="any" placeholder="Lng" oninput="onCoordsChange()"></div>
+      <div><label>Distance (m)</label><input type="number" class="input-field obs-dist" step="any" placeholder="Auto"></div>
+      <div><label>Screen Interval</label><input type="text" class="input-field obs-screen" placeholder="e.g. 20-30m"></div>
+    </div>`;
+  container.appendChild(div);
+
+  const sel = document.getElementById('mapClickMode');
+  const opt = document.createElement('option');
+  opt.value = 'ow' + idx;
+  opt.textContent = 'Place Observation Well #' + APP.obsWellCount;
+  sel.appendChild(opt);
+}
+
+function removeObsWell(btn) {
+  const entry = btn.closest('.obs-well-entry');
+  entry.remove();
+  onCoordsChange();
+}
+
+// =============================================================================
+// DATA INPUT MODES
+// =============================================================================
+function setDataMode(mode) {
+  document.querySelectorAll('.data-mode-content').forEach(d => d.classList.add('hidden'));
+  document.getElementById('mode-' + mode).classList.remove('hidden');
+  document.querySelectorAll('.data-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+    if (b.dataset.mode === mode) { b.classList.remove('btn-outline'); b.classList.add('btn-primary'); }
+    else { b.classList.add('btn-outline'); b.classList.remove('btn-primary'); }
+  });
+}
+
+// Drop zone
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('dropZone');
+  if (dz) dz.addEventListener('click', () => document.getElementById('fileInput').click());
+});
+
+function handleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    Papa.parse(file, {
+      header: true, dynamicTyping: true, skipEmptyLines: true,
+      complete: r => { importParsedData(r.data); toast('CSV imported: ' + r.data.length + ' rows', 'success'); }
+    });
+  } else if (['xlsx','xls'].includes(ext)) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      importParsedData(data);
+      toast('Excel imported: ' + data.length + ' rows', 'success');
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    toast('Unsupported format. Use CSV or XLSX.', 'error');
+  }
+}
+
+function importParsedData(rows) {
+  APP.data = [];
+  const keys = Object.keys(rows[0] || {});
+  const tKey = keys.find(k => /time|t|min/i.test(k)) || keys[0];
+  const sKey = keys.find(k => /draw|s|dd/i.test(k)) || keys[1];
+
+  rows.forEach(r => {
+    const t = parseFloat(r[tKey]);
+    const s = parseFloat(r[sKey]);
+    if (!isNaN(t) && !isNaN(s) && t > 0) APP.data.push({ t, s });
+  });
+
+  APP.data.sort((a, b) => a.t - b.t);
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  setDataMode('manual');
+}
+
+function parsePastedData() {
+  const text = document.getElementById('pasteArea').value.trim();
+  if (!text) { toast('Nothing to parse', 'warning'); return; }
+  const lines = text.split('\n').filter(l => l.trim());
+  APP.data = [];
+  lines.forEach(line => {
+    const parts = line.split(/[\t,;]+/).map(s => parseFloat(s.trim()));
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] > 0) {
+      APP.data.push({ t: parts[0], s: parts[1] });
+    }
+  });
+  APP.data.sort((a, b) => a.t - b.t);
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  toast('Parsed ' + APP.data.length + ' data points', 'success');
+  setDataMode('manual');
+}
+
+function populateDataTable() {
+  const body = document.getElementById('dataBody');
+  body.innerHTML = '';
+  APP.data.forEach((d, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="text-center text-slate-400 text-xs">${i+1}</td>
+      <td><input type="number" step="any" value="${d.t}" onchange="updateDataFromTable()"></td>
+      <td><input type="number" step="any" value="${d.s}" onchange="updateDataFromTable()"></td>
+      <td><button onclick="this.closest('tr').remove();updateDataFromTable()" class="text-red-400 hover:text-red-600 text-xs">✕</button></td>`;
+    body.appendChild(tr);
+  });
+}
+
+function addDataRow() {
+  const body = document.getElementById('dataBody');
+  const i = body.children.length;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="text-center text-slate-400 text-xs">${i+1}</td>
+    <td><input type="number" step="any" value="" onchange="updateDataFromTable()"></td>
+    <td><input type="number" step="any" value="" onchange="updateDataFromTable()"></td>
+    <td><button onclick="this.closest('tr').remove();updateDataFromTable()" class="text-red-400 hover:text-red-600 text-xs">✕</button></td>`;
+  body.appendChild(tr);
+}
+
+function addMultipleRows() { for (let i = 0; i < 10; i++) addDataRow(); }
+
+function removeLastRow() {
+  const body = document.getElementById('dataBody');
+  if (body.lastChild) body.removeChild(body.lastChild);
+  updateDataFromTable();
+}
+
+function clearDataTable() {
+  document.getElementById('dataBody').innerHTML = '';
+  APP.data = [];
+  APP.processed = [];
+  updateDataStats();
+}
+
+function updateDataFromTable() {
+  const rows = document.getElementById('dataBody').querySelectorAll('tr');
+  APP.data = [];
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input[type="number"]');
+    const t = parseFloat(inputs[0]?.value);
+    const s = parseFloat(inputs[1]?.value);
+    if (!isNaN(t) && !isNaN(s) && t > 0) APP.data.push({ t, s });
+  });
+  APP.data.sort((a, b) => a.t - b.t);
+  applyPreprocessing();
+  updateDataStats();
+  autoSave();
+}
+
+function updateDataStats() {
+  const d = APP.processed.length ? APP.processed : APP.data;
+  const el = document.getElementById('dataStats');
+  const cnt = document.getElementById('pointCount');
+  cnt.textContent = d.length;
+  if (!d.length) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const ss = d.map(p => p.s);
+  const ts = d.map(p => p.t);
+  document.getElementById('dataStatsContent').innerHTML = `
+    <div><div class="text-slate-400">Points</div><div class="font-bold">${d.length}</div></div>
+    <div><div class="text-slate-400">Time Range</div><div class="font-bold">${ts[0].toFixed(1)} – ${ts[ts.length-1].toFixed(1)} min</div></div>
+    <div><div class="text-slate-400">Max Drawdown</div><div class="font-bold">${Math.max(...ss).toFixed(3)} m</div></div>
+    <div><div class="text-slate-400">Min Drawdown</div><div class="font-bold">${Math.min(...ss).toFixed(3)} m</div></div>
+    <div><div class="text-slate-400">Mean Drawdown</div><div class="font-bold">${(ss.reduce((a,b)=>a+b,0)/ss.length).toFixed(3)} m</div></div>`;
+}
+
+// =============================================================================
+// DATA PREPROCESSING
+// =============================================================================
+function applyPreprocessing() {
+  let d = APP.data.map(p => ({ ...p, outlier: false, wbs: false }));
+  if (!d.length) { APP.processed = []; return; }
+
+  // Outlier detection via IQR
+  if (document.getElementById('chkOutlier').checked) {
+    const ss = d.map(p => p.s).sort((a,b) => a-b);
+    const q1 = ss[Math.floor(ss.length * 0.25)];
+    const q3 = ss[Math.floor(ss.length * 0.75)];
+    const iqr = q3 - q1;
+    d.forEach(p => { if (p.s < q1 - 1.5*iqr || p.s > q3 + 1.5*iqr) p.outlier = true; });
+  }
+
+  // Moving-average smoothing
+  if (document.getElementById('chkSmooth').checked) {
+    const w = parseInt(document.getElementById('smoothWindow').value);
+    const half = Math.floor(w / 2);
+    const smoothed = d.map((p, i) => {
+      if (p.outlier) return p;
+      let sum = 0, count = 0;
+      for (let j = Math.max(0, i-half); j <= Math.min(d.length-1, i+half); j++) {
+        if (!d[j].outlier) { sum += d[j].s; count++; }
+      }
+      return { ...p, s: count ? sum/count : p.s };
+    });
+    d = smoothed;
+  }
+
+  // Detrending (linear trend removal from first few points)
+  if (document.getElementById('chkDetrend').checked && d.length > 2) {
+    const n = Math.min(5, d.length);
+    let sumX=0, sumY=0, sumXY=0, sumX2=0;
+    for (let i=0; i<n; i++) { sumX+=d[i].t; sumY+=d[i].s; sumXY+=d[i].t*d[i].s; sumX2+=d[i].t**2; }
+    const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX**2);
+    const intercept = (sumY - slope*sumX) / n;
+    d = d.map(p => ({ ...p, s: p.s - (slope*p.t + intercept) }));
+  }
+
+  // Wellbore storage detection (unit slope on log-log)
+  if (document.getElementById('chkWBS').checked) {
+    for (let i = 1; i < d.length && i < 10; i++) {
+      if (d[i].t > 0 && d[i].s > 0 && d[i-1].t > 0 && d[i-1].s > 0) {
+        const slope = (Math.log10(d[i].s) - Math.log10(d[i-1].s)) / (Math.log10(d[i].t) - Math.log10(d[i-1].t));
+        if (Math.abs(slope - 1) < 0.15) d[i].wbs = true;
+      }
+    }
+    if (d.length > 0 && d[0].t > 0 && d[0].s > 0) d[0].wbs = d.length > 1 && d[1].wbs;
+  }
+
+  APP.processed = d.filter(p => !p.outlier);
+  updateDataStats();
+  highlightTableOutliers(d);
+}
+
+function highlightTableOutliers(d) {
+  const rows = document.getElementById('dataBody').querySelectorAll('tr');
+  rows.forEach((tr, i) => {
+    if (d[i]) {
+      tr.classList.toggle('outlier', d[i].outlier);
+      if (d[i].wbs) tr.style.borderLeft = '3px solid #f59e0b';
+      else tr.style.borderLeft = '';
+    }
+  });
+}
+
+// Recovery data extraction
+function extractRecovery() {
+  const tOff = parseFloat(document.getElementById('recoveryTime').value);
+  if (!tOff || !APP.data.length) { toast('Enter pump-off time and load data first', 'warning'); return; }
+  APP.recovery = [];
+  APP.data.forEach(p => {
+    if (p.t > tOff) {
+      const tp = p.t - tOff; // time since pump off
+      const tTotal = p.t;    // total time since pump on
+      APP.recovery.push({ tOverTp: tTotal / tp, sp: p.s });
+    }
+  });
+  if (APP.recovery.length) toast('Extracted ' + APP.recovery.length + ' recovery points', 'success');
+  else toast('No data points found after pump-off time', 'warning');
+}
+
+// =============================================================================
+// WELL FUNCTION MATHEMATICS
+// =============================================================================
+
+// Theis Well Function W(u) — high-precision series + asymptotic
+// For small u: W(u) = -γ - ln(u) + Σ(-1)^(n+1) * u^n / (n * n!) for n=1..25
+// For large u: continued fraction / exponential integral asymptotic
+const EULER_GAMMA = 0.5772156649015329;
+
+function wellFunctionW(u) {
+  if (u <= 0) return 30;
+  if (u > 40) return 0;
+
+  if (u < 1) {
+    let sum = -EULER_GAMMA - Math.log(u);
+    let term = 1;
+    for (let n = 1; n <= 30; n++) {
+      term *= -u / n;
+      sum -= term / n;
+    }
+    return Math.max(sum, 0);
+  } else {
+    // Asymptotic continued-fraction expansion
+    let a = 1, b = u + 1, c = 1/1e-30, d = 1/b, h = d;
+    for (let n = 1; n <= 60; n++) {
+      const an = -n * n;
+      b += 2;
+      d = 1 / (an * d + b);
+      c = b + an / c;
+      const del = c * d;
+      h *= del;
+      if (Math.abs(del - 1) < 1e-12) break;
+    }
+    return Math.max(h * Math.exp(-u), 0);
+  }
+}
+
+// Hantush-Jacob W(u, r/B) — leaky well function
+// W(u, β) = ∫[u,∞] (1/y) exp(-y - β²/(4y)) dy
+// Numerical integration via Gauss-Laguerre quadrature
+function hantushW(u, rOverB) {
+  if (u <= 0) return 30;
+  const beta2 = rOverB * rOverB;
+  const n = 64;
+  let sum = 0;
+  // Adaptive integration using substitution y = u + t
+  for (let i = 0; i < n; i++) {
+    const t1 = i / n, t2 = (i + 1) / n;
+    // Map [0,1] → [u, large] via y = u / (1-t)
+    for (const xi of [0.2113248654, 0.7886751346]) { // 2-point Gauss
+      const t = t1 + (t2 - t1) * xi;
+      if (t >= 1) continue;
+      const y = u / (1 - t);
+      const dy = u / ((1 - t) * (1 - t));
+      const integrand = (1 / y) * Math.exp(-y - beta2 / (4 * y));
+      sum += integrand * dy * (t2 - t1);
+    }
+  }
+  return Math.max(sum, 0);
+}
+
+// Neuman unconfined well function — simplified two-segment approach
+// Uses Theis for early (elastic storage S) and late (specific yield Sy) segments
+// with a transition controlled by the dimensionless parameter σ = S/Sy
+function neumanDrawdown(t_min, Q, T, S, Sy, r) {
+  const t_s = t_min * 60;
+  const sigma = S / Sy;
+  const ts = r * r * Sy / (T / 86400); // characteristic time scale (seconds)
+  const beta = sigma;
+
+  // Early time: governed by elastic storage S
+  const uEarly = r * r * S / (4 * (T / 86400) * t_s);
+  const sEarly = (Q / (4 * Math.PI * (T / 86400))) * wellFunctionW(uEarly);
+
+  // Late time: governed by specific yield Sy
+  const uLate = r * r * Sy / (4 * (T / 86400) * t_s);
+  const sLate = (Q / (4 * Math.PI * (T / 86400))) * wellFunctionW(uLate);
+
+  // Transition via time ratio — smooth sigmoid blend
+  const tRatio = t_s / (ts * 0.1 + 1);
+  const weight = 1 / (1 + Math.exp(-2 * (Math.log10(tRatio) - 1)));
+
+  return sEarly * (1 - weight) + sLate * weight;
+}
+
+// Compute theoretical drawdown for a given method
+function computeTheoretical(t_min, method, params) {
+  const { T, S, rOverB, Sy } = params;
+  const Q = getQ_m3s();
+  const r = getR_m();
+  const T_m2s = T / 86400;
+  const t_s = t_min * 60;
+
+  if (T_m2s <= 0 || t_s <= 0) return 0;
+
+  switch (method) {
+    case 'theis': {
+      const u = (r * r * S) / (4 * T_m2s * t_s);
+      return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(u);
+    }
+    case 'cooper-jacob': {
+      const u = (r * r * S) / (4 * T_m2s * t_s);
+      if (u > 0.05) return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(u);
+      return (Q / (4 * Math.PI * T_m2s)) * (Math.log(2.25 * T_m2s * t_s / (r * r * S)));
+    }
+    case 'hantush': {
+      const u = (r * r * S) / (4 * T_m2s * t_s);
+      return (Q / (4 * Math.PI * T_m2s)) * hantushW(u, rOverB || 0.1);
+    }
+    case 'neuman': {
+      return neumanDrawdown(t_min, Q, T, S, Sy || 0.1, r);
+    }
+    case 'recovery': {
+      // For recovery: s' = (Q/4πT) * W(u) - W(u')
+      // Plotted as s' vs t/t'
+      return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW((r*r*S)/(4*T_m2s*t_s));
+    }
+    default:
+      return 0;
+  }
+}
+
+// =============================================================================
+// LEVENBERG-MARQUARDT OPTIMIZER
+// =============================================================================
+function levenbergMarquardt(data, method, initialParams, bounds) {
+  const n = data.length;
+  if (n < 2) return initialParams;
+
+  let params = [...initialParams];
+  const np = params.length;
+  let lambda = 0.001;
+  const maxIter = 200;
+  const tol = 1e-10;
+
+  // Transform params to unbounded space for constrained optimization
+  function toUnbounded(p) {
+    return p.map((v, i) => Math.log(Math.max(v, 1e-20)));
+  }
+  function toBounded(u) {
+    return u.map((v, i) => {
+      let val = Math.exp(v);
+      if (bounds && bounds[i]) {
+        val = Math.max(bounds[i][0], Math.min(bounds[i][1], val));
+      }
+      return val;
+    });
+  }
+
+  function residuals(p) {
+    const bp = toBounded(p);
+    const paramObj = { T: bp[0], S: bp[1] };
+    if (np > 2) paramObj.rOverB = bp[2];
+    if (np > 2 && method === 'neuman') paramObj.Sy = bp[2];
+    return data.map(d => d.s - computeTheoretical(d.t, method, paramObj));
+  }
+
+  function sumSquares(p) {
+    return residuals(p).reduce((s, r) => s + r*r, 0);
+  }
+
+  let up = toUnbounded(params);
+  let cost = sumSquares(up);
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    const res = residuals(up);
+    const J = []; // Jacobian matrix
+
+    for (let j = 0; j < np; j++) {
+      const h = Math.max(Math.abs(up[j]) * 1e-6, 1e-10);
+      const upPlus = [...up]; upPlus[j] += h;
+      const resPlus = residuals(upPlus);
+      J.push(data.map((_, i) => (resPlus[i] - res[i]) / h));
+    }
+
+    // J^T J and J^T r
+    const JtJ = Array.from({length: np}, () => new Array(np).fill(0));
+    const Jtr = new Array(np).fill(0);
+
+    for (let j = 0; j < np; j++) {
+      for (let k = 0; k < np; k++) {
+        for (let i = 0; i < n; i++) JtJ[j][k] += J[j][i] * J[k][i];
+      }
+      for (let i = 0; i < n; i++) Jtr[j] += J[j][i] * res[i];
+    }
+
+    // (J^T J + λI) δ = J^T r
+    const A = JtJ.map((row, i) => row.map((v, j) => i === j ? v + lambda * (v + 1e-6) : v));
+    const delta = solveLinear(A, Jtr);
+    if (!delta) break;
+
+    const upNew = up.map((v, i) => v - delta[i]);
+    const newCost = sumSquares(upNew);
+
+    if (newCost < cost) {
+      up = upNew;
+      const improvement = cost - newCost;
+      cost = newCost;
+      lambda = Math.max(lambda * 0.3, 1e-12);
+      if (improvement < tol * cost) break;
+    } else {
+      lambda = Math.min(lambda * 10, 1e8);
+    }
+  }
+
+  return toBounded(up);
+}
+
+// Solve small linear system Ax = b via Gauss elimination
+function solveLinear(A, b) {
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let row = col+1; row < n; row++) if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+    [M[col], M[maxRow]] = [M[maxRow], M[col]];
+    if (Math.abs(M[col][col]) < 1e-20) return null;
+    for (let row = col+1; row < n; row++) {
+      const f = M[row][col] / M[col][col];
+      for (let j = col; j <= n; j++) M[row][j] -= f * M[col][j];
+    }
+  }
+  const x = new Array(n);
+  for (let i = n-1; i >= 0; i--) {
+    x[i] = M[i][n];
+    for (let j = i+1; j < n; j++) x[i] -= M[i][j] * x[j];
+    x[i] /= M[i][i];
+  }
+  return x;
+}
+
+// =============================================================================
+// GOODNESS-OF-FIT METRICS
+// =============================================================================
+function computeMetrics(observed, predicted) {
+  const n = observed.length;
+  if (n === 0) return { RMSE: 0, R2: 0, NSE: 0, MAE: 0 };
+  const meanObs = observed.reduce((a,b) => a+b, 0) / n;
+  let ssRes = 0, ssTot = 0, absErr = 0;
+  for (let i = 0; i < n; i++) {
+    const diff = observed[i] - predicted[i];
+    ssRes += diff * diff;
+    ssTot += (observed[i] - meanObs) ** 2;
+    absErr += Math.abs(diff);
+  }
+  return {
+    RMSE: Math.sqrt(ssRes / n),
+    R2: ssTot > 0 ? 1 - ssRes / ssTot : 0,
+    NSE: ssTot > 0 ? 1 - ssRes / ssTot : 0,
+    MAE: absErr / n
+  };
+}
+
+// =============================================================================
+// BOURDET DERIVATIVE
+// =============================================================================
+function computeBourdetDerivative(data, L) {
+  if (data.length < 3) return [];
+  const deriv = [];
+  for (let i = 1; i < data.length - 1; i++) {
+    const t = data[i].t, s = data[i].s;
+    // Find points within L * ln(t) distance
+    let prev = data[i-1], next = data[i+1];
+    // Three-point weighted formula
+    const dlnT1 = Math.log(t) - Math.log(prev.t);
+    const dlnT2 = Math.log(next.t) - Math.log(t);
+    const ds1 = s - prev.s;
+    const ds2 = next.s - s;
+
+    if (dlnT1 > 0 && dlnT2 > 0) {
+      const d = (ds1/dlnT1 * dlnT2 + ds2/dlnT2 * dlnT1) / (dlnT1 + dlnT2);
+      deriv.push({ t, d: Math.abs(d) });
+    }
+  }
+  return deriv;
+}
+
+// Smoothed derivative with L-spacing
+function computeSmoothedDerivative(data, L) {
+  if (data.length < 3) return [];
+  const deriv = [];
+  for (let i = 0; i < data.length; i++) {
+    const ti = data[i].t, si = data[i].s;
+    const lnTi = Math.log(ti);
+
+    // Find nearest points within L factor
+    let prevIdx = -1, nextIdx = -1;
+    let bestPrevDist = Infinity, bestNextDist = Infinity;
+
+    for (let j = 0; j < data.length; j++) {
+      if (j === i) continue;
+      const lnTj = Math.log(data[j].t);
+      const dist = Math.abs(lnTj - lnTi);
+      if (lnTj < lnTi && dist >= L * 0.5) {
+        if (dist < bestPrevDist) { bestPrevDist = dist; prevIdx = j; }
+      }
+      if (lnTj > lnTi && dist >= L * 0.5) {
+        if (dist < bestNextDist) { bestNextDist = dist; nextIdx = j; }
+      }
+    }
+
+    if (prevIdx >= 0 && nextIdx >= 0) {
+      const dlnT1 = lnTi - Math.log(data[prevIdx].t);
+      const dlnT2 = Math.log(data[nextIdx].t) - lnTi;
+      const ds1 = si - data[prevIdx].s;
+      const ds2 = data[nextIdx].s - si;
+      const d = (ds1/dlnT1 * dlnT2 + ds2/dlnT2 * dlnT1) / (dlnT1 + dlnT2);
+      deriv.push({ t: ti, d: Math.max(Math.abs(d), 1e-10) });
+    }
+  }
+  return deriv;
+}
+
+// =============================================================================
+// DIAGNOSTIC ANALYSIS — pattern recognition
+// =============================================================================
+function diagnoseAquifer(deriv) {
+  if (deriv.length < 5) return { type: 'unknown', confidence: 0, message: 'Insufficient data for diagnosis.' };
+
+  const n = deriv.length;
+  const mid = Math.floor(n / 2);
+  const earlyAvg = deriv.slice(0, Math.max(3, Math.floor(n/4))).reduce((s,p) => s + p.d, 0) / Math.max(3, Math.floor(n/4));
+  const midAvg = deriv.slice(mid-2, mid+3).reduce((s,p) => s + p.d, 0) / Math.min(5, n);
+  const lateAvg = deriv.slice(-Math.max(3, Math.floor(n/4))).reduce((s,p) => s + p.d, 0) / Math.max(3, Math.floor(n/4));
+
+  // Check for unit slope (wellbore storage) in early time
+  const earlySlopes = [];
+  for (let i = 1; i < Math.min(5, deriv.length); i++) {
+    if (deriv[i].t > 0 && deriv[i-1].t > 0 && deriv[i].d > 0 && deriv[i-1].d > 0) {
+      earlySlopes.push((Math.log10(deriv[i].d) - Math.log10(deriv[i-1].d)) / (Math.log10(deriv[i].t) - Math.log10(deriv[i-1].t)));
+    }
+  }
+  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a,b)=>a+b,0)/earlySlopes.length : 0;
+  const hasWBS = Math.abs(avgEarlySlope - 1) < 0.3;
+
+  // Analyze derivative shape
+  const variation = Math.abs(lateAvg - earlyAvg) / (earlyAvg || 1);
+  const midDip = midAvg < earlyAvg * 0.6 && midAvg < lateAvg * 0.6;
+  const dropping = lateAvg < earlyAvg * 0.5;
+  const rising = lateAvg > earlyAvg * 1.8;
+  const flat = variation < 0.3;
+
+  let result = { type: 'confined', confidence: 0.5, message: '', recommended: 'theis' };
+
+  if (flat && !midDip) {
+    result = { type: 'confined', confidence: 0.85, message: 'Derivative is approximately flat — indicates CONFINED aquifer (infinite acting radial flow).', recommended: 'theis' };
+  } else if (midDip) {
+    result = { type: 'unconfined', confidence: 0.8, message: 'Derivative shows characteristic dip and recovery — indicates UNCONFINED aquifer with delayed yield.', recommended: 'neuman' };
+  } else if (dropping) {
+    result = { type: 'leaky', confidence: 0.75, message: 'Derivative decreases at late time — indicates LEAKY aquifer with vertical recharge through aquitard.', recommended: 'hantush' };
+  } else if (rising) {
+    result = { type: 'barrier', confidence: 0.7, message: 'Derivative continuously increases — indicates presence of an IMPERMEABLE BOUNDARY (barrier).', recommended: 'theis' };
+  }
+
+  if (hasWBS) {
+    result.message += ' Early-time WELLBORE STORAGE effects detected (unit slope).';
+    result.wbs = true;
+  }
+
+  return result;
+}
+
+// =============================================================================
+// ANALYSIS PLOTS & CONTROLS
+// =============================================================================
+function onMethodChange() {
+  const method = document.getElementById('analysisMethod').value;
+  document.getElementById('leakageControl').classList.toggle('hidden', method !== 'hantush');
+  document.getElementById('neumanControl').classList.toggle('hidden', method !== 'neuman');
+  updateAnalysisPlot();
+}
+
+function onSliderChange() {
+  const T = Math.pow(10, parseFloat(document.getElementById('sliderT').value));
+  const S = Math.pow(10, parseFloat(document.getElementById('sliderS').value));
+  document.getElementById('tVal').textContent = T < 1 ? T.toExponential(2) : T.toFixed(1);
+  document.getElementById('sVal').textContent = S.toExponential(2);
+
+  if (document.getElementById('sliderRB')) {
+    const rb = parseFloat(document.getElementById('sliderRB').value);
+    document.getElementById('rbVal').textContent = rb.toFixed(2);
+  }
+  if (document.getElementById('sliderSy')) {
+    const Sy = Math.pow(10, parseFloat(document.getElementById('sliderSy').value));
+    document.getElementById('syVal').textContent = Sy.toExponential(2);
+    document.getElementById('sigmaVal').textContent = (S / Sy).toExponential(3);
+  }
+  updateAnalysisPlot();
+  updateResults();
+}
+
+function setAxisMode(mode) {
+  APP.axisMode = mode;
+  document.querySelectorAll('.axis-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.axis === mode);
+    if (b.dataset.axis === mode) { b.classList.remove('btn-outline'); b.classList.add('btn-primary'); }
+    else { b.classList.add('btn-outline'); b.classList.remove('btn-primary'); }
+  });
+  updateAnalysisPlot();
+}
+
+function getCurrentParams() {
+  const T = Math.pow(10, parseFloat(document.getElementById('sliderT').value));
+  const S = Math.pow(10, parseFloat(document.getElementById('sliderS').value));
+  const rOverB = parseFloat(document.getElementById('sliderRB').value);
+  const Sy = Math.pow(10, parseFloat(document.getElementById('sliderSy').value));
+  return { T, S, rOverB, Sy };
+}
+
+function autoFit() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (data.length < 3) { toast('Need at least 3 data points', 'warning'); return; }
+
+  const method = document.getElementById('analysisMethod').value;
+  const btn = document.getElementById('autoFitBtn');
+  btn.innerHTML = '<span class="spinner"></span> Fitting...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      const p = getCurrentParams();
+      let initial, bounds;
+
+      if (method === 'neuman') {
+        initial = [p.T, p.S, p.Sy];
+        bounds = [[0.01, 1e6], [1e-10, 0.1], [0.001, 0.5]];
+      } else if (method === 'hantush') {
+        initial = [p.T, p.S, p.rOverB];
+        bounds = [[0.01, 1e6], [1e-10, 0.1], [0.001, 10]];
+      } else {
+        initial = [p.T, p.S];
+        bounds = [[0.01, 1e6], [1e-10, 0.5]];
+      }
+
+      const result = levenbergMarquardt(data, method, initial, bounds);
+
+      // Update sliders
+      document.getElementById('sliderT').value = Math.log10(result[0]);
+      document.getElementById('sliderS').value = Math.log10(result[1]);
+      if (method === 'hantush' && result[2]) document.getElementById('sliderRB').value = result[2];
+      if (method === 'neuman' && result[2]) document.getElementById('sliderSy').value = Math.log10(result[2]);
+
+      onSliderChange();
+      toast('Auto-fit complete!', 'success');
+    } catch (e) {
+      toast('Auto-fit failed: ' + e.message, 'error');
+    } finally {
+      btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Auto-Fit (Levenberg-Marquardt)';
+      btn.disabled = false;
+    }
+  }, 50);
+}
+
+function updateResults() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length) return;
+
+  const method = document.getElementById('analysisMethod').value;
+  const params = getCurrentParams();
+  const predicted = data.map(d => computeTheoretical(d.t, method, params));
+  const observed = data.map(d => d.s);
+  const metrics = computeMetrics(observed, predicted);
+
+  const T = params.T;
+  const S = params.S;
+  const K = T / (getB_m() || 1);
+  const Ss = S / (getB_m() || 1);
+  const td = getPumpDuration_s();
+  const ROI = td > 0 && S > 0 ? Math.sqrt(2.25 * (T/86400) * td / S) : 0;
+
+  APP.results = { T, S, Sy: params.Sy, K, Ss, ...metrics, ROI, method };
+
+  // Update live badges
+  document.getElementById('liveT').textContent = 'T: ' + (T < 1 ? T.toExponential(2) : T.toFixed(1)) + ' m²/d';
+  document.getElementById('liveS').textContent = 'S: ' + S.toExponential(2);
+  document.getElementById('liveT').classList.remove('hidden');
+  document.getElementById('liveS').classList.remove('hidden');
+  document.getElementById('liveMethod').textContent = method;
+  document.getElementById('liveMethod').classList.remove('hidden');
+
+  // Results panel
+  const el = document.getElementById('resultsContent');
+  let html = `
+    <div class="grid grid-cols-2 gap-2">
+      <div class="p-2 rounded bg-blue-50 dark:bg-blue-900/20"><div class="text-[.6rem] text-slate-400">Transmissivity (T)</div><div class="font-bold text-sm text-blue-600 dark:text-blue-400">${T < 1 ? T.toExponential(3) : T.toFixed(2)} m²/day</div></div>
+      <div class="p-2 rounded bg-green-50 dark:bg-green-900/20"><div class="text-[.6rem] text-slate-400">Storativity (S)</div><div class="font-bold text-sm text-green-600 dark:text-green-400">${S.toExponential(3)}</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">Hyd. Conductivity (K)</div><div class="font-bold text-sm">${K < 1 ? K.toExponential(3) : K.toFixed(3)} m/day</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">Specific Storage (Ss)</div><div class="font-bold text-sm">${Ss.toExponential(3)} 1/m</div></div>`;
+  if (method === 'neuman') {
+    html += `<div class="p-2 rounded bg-orange-50 dark:bg-orange-900/20 col-span-2"><div class="text-[.6rem] text-slate-400">Specific Yield (Sy)</div><div class="font-bold text-sm text-orange-600 dark:text-orange-400">${params.Sy.toExponential(3)}</div></div>`;
+  }
+  html += `</div>
+    <div class="mt-2 p-2 rounded bg-slate-50 dark:bg-slate-800">
+      <div class="text-[.6rem] text-slate-400 mb-1">Goodness of Fit</div>
+      <div class="grid grid-cols-2 gap-1 text-xs">
+        <div>RMSE: <span class="font-mono font-bold ${metrics.RMSE < 0.1 ? 'text-green-600' : 'text-amber-600'}">${metrics.RMSE.toFixed(4)}</span></div>
+        <div>R²: <span class="font-mono font-bold ${metrics.R2 > 0.95 ? 'text-green-600' : 'text-amber-600'}">${metrics.R2.toFixed(4)}</span></div>
+        <div>NSE: <span class="font-mono font-bold">${metrics.NSE.toFixed(4)}</span></div>
+        <div>MAE: <span class="font-mono font-bold">${metrics.MAE.toFixed(4)}</span></div>
+      </div>
+    </div>`;
+  if (ROI > 0) {
+    html += `<div class="mt-2 p-2 rounded bg-purple-50 dark:bg-purple-900/20">
+      <div class="text-[.6rem] text-slate-400">Radius of Influence</div>
+      <div class="font-bold text-sm text-purple-600 dark:text-purple-400">${ROI.toFixed(1)} m</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+
+  // Store in history
+  const existing = APP.allResults.findIndex(r => r.method === method);
+  if (existing >= 0) APP.allResults[existing] = { ...APP.results };
+  else APP.allResults.push({ ...APP.results });
+
+  autoSave();
+}
+
+function updateAnalysisPlot() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length) {
+    Plotly.react('analysisChart', [], { ...getPlotLayout('Analysis', ''), margin: { t: 40, r: 20, b: 40, l: 60 } });
+    return;
+  }
+
+  const method = document.getElementById('analysisMethod').value;
+  const params = getCurrentParams();
+
+  // Generate theoretical curve with more points
+  const tMin = Math.min(...data.map(d => d.t));
+  const tMax = Math.max(...data.map(d => d.t));
+  const logMin = Math.log10(tMin) - 0.5;
+  const logMax = Math.log10(tMax) + 0.5;
+  const theoryT = [], theoryS = [];
+  for (let i = 0; i <= 200; i++) {
+    const t = Math.pow(10, logMin + (logMax - logMin) * i / 200);
+    theoryT.push(t);
+    theoryS.push(computeTheoretical(t, method, params));
+  }
+
+  const axisType = APP.axisMode === 'loglog' ? { x: 'log', y: 'log' } :
+                   APP.axisMode === 'semilog' ? { x: 'log', y: 'linear' } :
+                   { x: 'linear', y: 'linear' };
+
+  const isDark = APP.isDark;
+  const traces = [
+    {
+      x: data.map(d => d.t), y: data.map(d => d.s),
+      mode: 'markers', type: 'scatter', name: 'Observed',
+      marker: { color: '#3b82f6', size: 7, symbol: 'circle', line: { width: 1, color: '#1d4ed8' } }
+    },
+    {
+      x: theoryT, y: theoryS,
+      mode: 'lines', type: 'scatter', name: 'Theoretical (' + method + ')',
+      line: { color: '#ef4444', width: 2.5 }
+    }
+  ];
+
+  // Derivative overlay
+  const deriv = computeSmoothedDerivative(data, 0.3);
+  if (deriv.length > 2) {
+    traces.push({
+      x: deriv.map(d => d.t), y: deriv.map(d => d.d),
+      mode: 'lines+markers', type: 'scatter', name: 'Derivative',
+      marker: { color: '#10b981', size: 4, symbol: 'diamond' },
+      line: { color: '#10b981', width: 1.5, dash: 'dot' },
+      yaxis: APP.axisMode === 'loglog' ? 'y' : 'y'
+    });
+  }
+
+  const layout = {
+    xaxis: { title: 'Time (min)', type: axisType.x, gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'Drawdown (m)', type: axisType.y, autorange: axisType.y === 'log' ? true : undefined, gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
+    margin: { t: 30, r: 20, b: 50, l: 60 },
+    hovermode: 'closest'
+  };
+
+  Plotly.react('analysisChart', traces, layout, { responsive: true, displayModeBar: true });
+
+  // Residuals
+  const predicted = data.map(d => computeTheoretical(d.t, method, params));
+  const residuals = data.map((d, i) => d.s - predicted[i]);
+  Plotly.react('residualChart', [{
+    x: data.map(d => d.t), y: residuals,
+    type: 'bar', marker: { color: residuals.map(r => r >= 0 ? '#3b82f6' : '#ef4444') }
+  }], {
+    xaxis: { title: 'Time (min)', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'Residual (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569', zeroline: true, zerolinecolor: isDark ? '#64748b' : '#94a3b8' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    margin: { t: 10, r: 20, b: 40, l: 60 },
+    showlegend: false
+  }, { responsive: true, displayModeBar: false });
+
+  updateResults();
+}
+
+// =============================================================================
+// DIAGNOSTIC PLOT
+// =============================================================================
+function updateDiagnosticPlot() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length) {
+    Plotly.react('diagnosticChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { t: 20, r: 20, b: 40, l: 60 } });
+    return;
+  }
+
+  const L = parseFloat(document.getElementById('derivL').value);
+  const deriv = computeSmoothedDerivative(data, L);
+  const isDark = APP.isDark;
+
+  const traces = [
+    {
+      x: data.map(d => d.t), y: data.map(d => d.s),
+      mode: 'lines+markers', type: 'scatter', name: 'Drawdown (s)',
+      marker: { color: '#3b82f6', size: 6 }, line: { color: '#3b82f6', width: 1.5 }
+    }
+  ];
+
+  if (deriv.length > 1) {
+    traces.push({
+      x: deriv.map(d => d.t), y: deriv.map(d => d.d),
+      mode: 'lines+markers', type: 'scatter', name: 'Derivative ds/d(lnt)',
+      marker: { color: '#ef4444', size: 5, symbol: 'diamond' }, line: { color: '#ef4444', width: 2 }
+    });
+  }
+
+  const layout = {
+    xaxis: { title: 'Time (min)', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'Drawdown / Derivative', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
+    margin: { t: 20, r: 20, b: 50, l: 60 },
+    hovermode: 'closest'
+  };
+
+  Plotly.react('diagnosticChart', traces, layout, { responsive: true });
+
+  // Run diagnosis
+  const diag = diagnoseAquifer(deriv);
+  const diagEl = document.getElementById('diagnosisResult');
+  const colors = { confined: 'blue', unconfined: 'green', leaky: 'purple', barrier: 'red', unknown: 'slate' };
+  const c = colors[diag.type] || 'slate';
+  diagEl.innerHTML = `
+    <div class="p-3 rounded-lg bg-${c}-50 dark:bg-${c}-900/20 border border-${c}-200 dark:border-${c}-700">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-${c}-500"></span>
+        <span class="text-sm font-bold text-${c}-700 dark:text-${c}-400 uppercase">${diag.type}</span>
+        <span class="text-xs text-slate-400">(${Math.round(diag.confidence*100)}% confidence)</span>
+      </div>
+      <p class="text-xs text-slate-600 dark:text-slate-300">${diag.message}</p>
+    </div>
+    <div class="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+      <div class="text-xs font-semibold mb-1">💡 Recommended Method</div>
+      <button onclick="document.getElementById('analysisMethod').value='${diag.recommended}';switchTab('analysis');onMethodChange()" class="btn btn-primary text-xs w-full">
+        Use ${diag.recommended.charAt(0).toUpperCase() + diag.recommended.slice(1)} Method →
+      </button>
+    </div>`;
+}
+
+// =============================================================================
+// SENSITIVITY ANALYSIS
+// =============================================================================
+function runSensitivity() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length || !APP.results.T) { toast('Run analysis first', 'warning'); return; }
+
+  const method = document.getElementById('analysisMethod').value;
+  const baseT = APP.results.T, baseS = APP.results.S;
+  const params = getCurrentParams();
+  const variations = [-50, -25, -10, 10, 25, 50];
+  const isDark = APP.isDark;
+
+  const traces = [];
+  // Base trace
+  const theoryT = data.map(d => d.t);
+
+  variations.forEach(pct => {
+    // T variation
+    const T2 = baseT * (1 + pct/100);
+    const sT = theoryT.map(t => computeTheoretical(t, method, { ...params, T: T2 }));
+    traces.push({
+      x: theoryT, y: sT, mode: 'lines', name: `T ${pct > 0 ? '+' : ''}${pct}%`,
+      line: { width: 1.5, dash: pct < 0 ? 'dash' : 'solid', color: pct < 0 ? '#ef4444' : '#3b82f6' },
+      opacity: 0.5 + Math.abs(pct)/100
+    });
+  });
+
+  document.getElementById('sensitivityCard').classList.remove('hidden');
+  Plotly.react('sensitivityChart', traces, {
+    xaxis: { title: 'Time (min)', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'Drawdown (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    legend: { x: 1, y: 1, xanchor: 'right' },
+    margin: { t: 20, r: 20, b: 50, l: 60 },
+    title: { text: 'Sensitivity: T variation', font: { size: 13 } }
+  }, { responsive: true });
+
+  toast('Sensitivity analysis complete', 'success');
+}
+
+// =============================================================================
+// DRAWDOWN PREDICTION
+// =============================================================================
+function predictDrawdown() {
+  const t = parseFloat(document.getElementById('predictTime').value);
+  if (!t || !APP.results.T) { toast('Enter time and run analysis first', 'warning'); return; }
+  const method = document.getElementById('analysisMethod').value;
+  const params = getCurrentParams();
+  const s = computeTheoretical(t, method, params);
+  document.getElementById('predictionResult').textContent = `Predicted drawdown at t=${t} min: ${s.toFixed(4)} m`;
+}
+
+// =============================================================================
+// LEAFLET MAP
+// =============================================================================
+function initMap() {
+  if (APP.leafletMap) return;
+  APP.leafletMap = L.map('map').setView([36.75, 3.05], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+  }).addTo(APP.leafletMap);
+
+  APP.leafletMap.on('click', function(e) {
+    const mode = document.getElementById('mapClickMode').value;
+    if (APP.measureMode) {
+      APP.measurePoints.push(e.latlng);
+      const m = L.circleMarker(e.latlng, { radius: 5, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1 }).addTo(APP.leafletMap);
+      APP.mapMarkers.measure.push(m);
+      if (APP.measurePoints.length === 2) {
+        const d = APP.measurePoints[0].distanceTo(APP.measurePoints[1]);
+        const line = L.polyline(APP.measurePoints, { color: '#f59e0b', dashArray: '5,5' }).addTo(APP.leafletMap);
+        APP.mapMarkers.measure.push(line);
+        document.getElementById('distInfo').innerHTML = `<span class="font-bold text-amber-600">${d.toFixed(1)} m</span> (${(d/1000).toFixed(3)} km)`;
+        APP.measureMode = false;
+      }
+      return;
+    }
+
+    if (mode === 'pw') {
+      document.getElementById('pwLat').value = e.latlng.lat.toFixed(6);
+      document.getElementById('pwLng').value = e.latlng.lng.toFixed(6);
+    } else {
+      const idx = parseInt(mode.replace('ow', ''));
+      const entries = document.querySelectorAll('.obs-well-entry');
+      if (entries[idx]) {
+        entries[idx].querySelector('.obs-lat').value = e.latlng.lat.toFixed(6);
+        entries[idx].querySelector('.obs-lng').value = e.latlng.lng.toFixed(6);
+      }
+    }
+    onCoordsChange();
+  });
+}
+
+function updateMapMarkers() {
+  if (!APP.leafletMap) return;
+  const pwLat = parseFloat(document.getElementById('pwLat').value);
+  const pwLng = parseFloat(document.getElementById('pwLng').value);
+
+  // Remove old markers
+  if (APP.mapMarkers.pw) APP.leafletMap.removeLayer(APP.mapMarkers.pw);
+  APP.mapMarkers.ow.forEach(m => APP.leafletMap.removeLayer(m));
+  APP.mapMarkers.ow = [];
+
+  if (!isNaN(pwLat) && !isNaN(pwLng)) {
+    const pwIcon = L.divIcon({
+      className: '',
+      html: '<div style="width:16px;height:16px;background:#ef4444;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px rgba(239,68,68,.6)" class="pulsing-marker"></div>',
+      iconSize: [16, 16], iconAnchor: [8, 8]
+    });
+    APP.mapMarkers.pw = L.marker([pwLat, pwLng], { icon: pwIcon })
+      .addTo(APP.leafletMap)
+      .bindPopup('<b>Pumping Well</b><br>' + document.getElementById('pwID').value);
+
+    APP.leafletMap.setView([pwLat, pwLng], 14);
+  }
+
+  document.querySelectorAll('.obs-well-entry').forEach((entry, i) => {
+    const lat = parseFloat(entry.querySelector('.obs-lat').value);
+    const lng = parseFloat(entry.querySelector('.obs-lng').value);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      const owIcon = L.divIcon({
+        className: '',
+        html: '<div style="width:12px;height:12px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px rgba(59,130,246,.5)"></div>',
+        iconSize: [12, 12], iconAnchor: [6, 6]
+      });
+      const m = L.marker([lat, lng], { icon: owIcon })
+        .addTo(APP.leafletMap)
+        .bindPopup('<b>' + (entry.querySelector('.obs-id').value || 'OW-'+(i+1)) + '</b><br>r = ' + (entry.querySelector('.obs-dist').value || '?') + ' m');
+      APP.mapMarkers.ow.push(m);
+    }
+  });
+}
+
+function updateROI() {
+  if (!APP.leafletMap) return;
+  const pwLat = parseFloat(document.getElementById('pwLat').value);
+  const pwLng = parseFloat(document.getElementById('pwLng').value);
+  if (isNaN(pwLat) || isNaN(pwLng)) { toast('Set pumping well coordinates', 'warning'); return; }
+
+  // Remove old ROI and contours
+  if (APP.mapMarkers.roi) APP.leafletMap.removeLayer(APP.mapMarkers.roi);
+  APP.mapMarkers.contours.forEach(c => APP.leafletMap.removeLayer(c));
+  APP.mapMarkers.contours = [];
+
+  const T = APP.results.T;
+  const S = APP.results.S;
+  if (!T || !S) { toast('Run analysis first to get T and S', 'warning'); return; }
+
+  const td = getPumpDuration_s();
+  if (td <= 0) { toast('Set total pumping duration', 'warning'); return; }
+
+  // ROI = √(2.25 * T * t / S) — Cooper-Jacob approximation
+  const T_m2s = T / 86400;
+  const ROI = Math.sqrt(2.25 * T_m2s * td / S);
+
+  APP.mapMarkers.roi = L.circle([pwLat, pwLng], {
+    radius: ROI, color: '#8b5cf6', weight: 2, dashArray: '8,4',
+    fillColor: '#8b5cf6', fillOpacity: 0.08
+  }).addTo(APP.leafletMap).bindPopup(`<b>Radius of Influence</b><br>${ROI.toFixed(1)} m`);
+
+  // ROI info panel
+  document.getElementById('roiInfo').innerHTML = `
+    <div class="p-2 rounded bg-purple-50 dark:bg-purple-900/20">
+      <div class="text-[.6rem] text-slate-400">Cooper-Jacob ROI</div>
+      <div class="font-bold text-purple-600 dark:text-purple-400">${ROI.toFixed(1)} m</div>
+    </div>`;
+
+  // Drawdown contours
+  if (document.getElementById('chkContours').checked) {
+    const Q = getQ_m3s();
+    const contourValues = [0.1, 0.5, 1, 2, 5];
+    const colors = ['#22c55e', '#eab308', '#f97316', '#ef4444', '#7c3aed'];
+
+    contourValues.forEach((sTarget, ci) => {
+      // Find r where s = sTarget using Theis: s = Q/(4πT) * W(r²S/(4Tt))
+      // Iterative bisection
+      let rLow = 1, rHigh = ROI * 2;
+      for (let iter = 0; iter < 50; iter++) {
+        const rMid = (rLow + rHigh) / 2;
+        const u = (rMid * rMid * S) / (4 * T_m2s * td);
+        const sMid = (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(u);
+        if (sMid > sTarget) rLow = rMid; else rHigh = rMid;
+        if (Math.abs(rHigh - rLow) < 0.5) break;
+      }
+      const rContour = (rLow + rHigh) / 2;
+      if (rContour > 1 && rContour < ROI * 3) {
+        const circle = L.circle([pwLat, pwLng], {
+          radius: rContour, color: colors[ci], weight: 1.5,
+          fillColor: colors[ci], fillOpacity: 0.04, dashArray: '4,4'
+        }).addTo(APP.leafletMap).bindPopup(`Drawdown: ${sTarget} m<br>Distance: ${rContour.toFixed(0)} m`);
+        APP.mapMarkers.contours.push(circle);
+      }
+    });
+  }
+
+  APP.leafletMap.fitBounds(APP.mapMarkers.roi.getBounds().pad(0.2));
+  toast('ROI updated on map', 'success');
+}
+
+function startMeasure() {
+  APP.measureMode = !APP.measureMode;
+  APP.measurePoints = [];
+  APP.mapMarkers.measure.forEach(m => APP.leafletMap.removeLayer(m));
+  APP.mapMarkers.measure = [];
+  if (APP.measureMode) {
+    toast('Click two points on the map to measure distance', 'info');
+    document.getElementById('distInfo').textContent = 'Click first point...';
+  } else {
+    document.getElementById('distInfo').textContent = 'Measurement cancelled.';
+  }
+}
+
+// =============================================================================
+// REPORT GENERATION
+// =============================================================================
+function buildReportPreview() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  const r = APP.results;
+  const method = document.getElementById('analysisMethod')?.value || '—';
+  const el = document.getElementById('reportPreview');
+
+  el.innerHTML = `
+    <div style="font-family:Inter,sans-serif;color:#1e293b;max-width:800px;margin:0 auto;">
+      <div style="text-align:center;padding:2rem 0;border-bottom:3px solid #3b82f6">
+        <h1 style="font-size:1.5rem;font-weight:700;color:#1e3a8a">AquiPro — Pumping Test Analysis Report</h1>
+        <p style="font-size:.875rem;color:#64748b;margin-top:.5rem">${document.getElementById('projectName').value}</p>
+        <p style="font-size:.75rem;color:#94a3b8">${document.getElementById('projLocation').value || ''} | ${document.getElementById('projDate').value || new Date().toLocaleDateString()} | Analyst: ${document.getElementById('projAnalyst').value || '—'}</p>
+      </div>
+
+      <h2 style="font-size:1rem;font-weight:600;margin:1.5rem 0 .75rem;color:#1e3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:.25rem">1. Input Parameters</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:.8125rem">
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500;width:40%">Pumping Rate (Q)</td><td style="padding:.375rem;border:1px solid #e2e8f0">${document.getElementById('pumpRate').value} ${document.getElementById('pumpRateUnit').value}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Aquifer Thickness (b)</td><td style="padding:.375rem;border:1px solid #e2e8f0">${document.getElementById('aquiferThickness').value} ${document.getElementById('thicknessUnit').value}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Radial Distance (r)</td><td style="padding:.375rem;border:1px solid #e2e8f0">${getR_m().toFixed(2)} m</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Data Points</td><td style="padding:.375rem;border:1px solid #e2e8f0">${data.length}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Analysis Method</td><td style="padding:.375rem;border:1px solid #e2e8f0">${method}</td></tr>
+      </table>
+
+      <h2 style="font-size:1rem;font-weight:600;margin:1.5rem 0 .75rem;color:#1e3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:.25rem">2. Results</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:.8125rem">
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500;width:40%">Transmissivity (T)</td><td style="padding:.375rem;border:1px solid #e2e8f0;font-weight:700;color:#2563eb">${r.T ? (r.T < 1 ? r.T.toExponential(4) : r.T.toFixed(2)) : '—'} m²/day</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Storativity (S)</td><td style="padding:.375rem;border:1px solid #e2e8f0;font-weight:700;color:#059669">${r.S ? r.S.toExponential(4) : '—'}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Hydraulic Conductivity (K)</td><td style="padding:.375rem;border:1px solid #e2e8f0">${r.K ? r.K.toFixed(4) : '—'} m/day</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Specific Storage (Ss)</td><td style="padding:.375rem;border:1px solid #e2e8f0">${r.Ss ? r.Ss.toExponential(4) : '—'} m⁻¹</td></tr>
+        ${r.Sy ? `<tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Specific Yield (Sy)</td><td style="padding:.375rem;border:1px solid #e2e8f0">${r.Sy.toExponential(4)}</td></tr>` : ''}
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">RMSE</td><td style="padding:.375rem;border:1px solid #e2e8f0">${r.RMSE !== undefined ? r.RMSE.toFixed(5) : '—'}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">R²</td><td style="padding:.375rem;border:1px solid #e2e8f0">${r.R2 !== undefined ? r.R2.toFixed(5) : '—'}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">NSE</td><td style="padding:.375rem;border:1px solid #e2e8f0">${r.NSE !== undefined ? r.NSE.toFixed(5) : '—'}</td></tr>
+        <tr><td style="padding:.375rem;border:1px solid #e2e8f0;background:#f8fafc;font-weight:500">Radius of Influence</td><td style="padding:.375rem;border:1px solid #e2e8f0;font-weight:700;color:#7c3aed">${r.ROI ? r.ROI.toFixed(1) + ' m' : '—'}</td></tr>
+      </table>
+
+      <h2 style="font-size:1rem;font-weight:600;margin:1.5rem 0 .75rem;color:#1e3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:.25rem">3. Charts</h2>
+      <p style="font-size:.75rem;color:#94a3b8;font-style:italic">Charts will be captured as snapshots in the PDF.</p>
+
+      <div style="margin-top:2rem;text-align:center;font-size:.6875rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:1rem">
+        Generated by AquiPro — Pumping Test Analyzer | ${new Date().toLocaleString()}
+      </div>
+    </div>`;
+  toast('Report preview built', 'success');
+}
+
+async function generatePDF() {
+  const btn = document.getElementById('pdfBtn');
+  btn.innerHTML = '<span class="spinner"></span> Generating...';
+  btn.disabled = true;
+
+  try {
+    buildReportPreview();
+    await new Promise(r => setTimeout(r, 500));
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageW = 210, marginX = 15;
+    let y = 20;
+
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(30, 58, 138);
+    doc.text('AquiPro \u2014 Pumping Test Analysis Report', pageW/2, y, { align: 'center' });
+    y += 8;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(document.getElementById('projectName').value, pageW/2, y, { align: 'center' });
+    y += 5;
+    doc.text(`${document.getElementById('projLocation').value || ''} | ${document.getElementById('projDate').value || new Date().toLocaleDateString()} | ${document.getElementById('projAnalyst').value || ''}`, pageW/2, y, { align: 'center' });
+    y += 10;
+
+    doc.setDrawColor(59, 130, 246);
+    doc.setLineWidth(0.5);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 10;
+
+    // Input params
+    doc.setFontSize(12);
+    doc.setTextColor(30, 58, 138);
+    doc.text('1. Input Parameters', marginX, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(30, 41, 59);
+
+    const inputs = [
+      ['Pumping Rate (Q)', `${document.getElementById('pumpRate').value} ${document.getElementById('pumpRateUnit').value}`],
+      ['Aquifer Thickness (b)', `${document.getElementById('aquiferThickness').value} ${document.getElementById('thicknessUnit').value}`],
+      ['Radial Distance (r)', `${getR_m().toFixed(2)} m`],
+      ['Data Points', `${(APP.processed.length || APP.data.length)}`],
+      ['Analysis Method', document.getElementById('analysisMethod').value],
+    ];
+    inputs.forEach(([k, v]) => {
+      doc.setFont(undefined, 'bold');
+      doc.text(k + ':', marginX, y);
+      doc.setFont(undefined, 'normal');
+      doc.text(v, marginX + 55, y);
+      y += 5;
+    });
+
+    y += 5;
+    doc.setFontSize(12);
+    doc.setTextColor(30, 58, 138);
+    doc.text('2. Results', marginX, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(30, 41, 59);
+
+    const r = APP.results;
+    const results = [
+      ['Transmissivity (T)', r.T ? (r.T < 1 ? r.T.toExponential(4) : r.T.toFixed(2)) + ' m²/day' : '—'],
+      ['Storativity (S)', r.S ? r.S.toExponential(4) : '—'],
+      ['Hyd. Conductivity (K)', r.K ? r.K.toFixed(4) + ' m/day' : '—'],
+      ['RMSE', r.RMSE !== undefined ? r.RMSE.toFixed(5) : '—'],
+      ['R²', r.R2 !== undefined ? r.R2.toFixed(5) : '—'],
+      ['ROI', r.ROI ? r.ROI.toFixed(1) + ' m' : '—'],
+    ];
+    results.forEach(([k, v]) => {
+      doc.setFont(undefined, 'bold');
+      doc.text(k + ':', marginX, y);
+      doc.setFont(undefined, 'normal');
+      doc.text(v, marginX + 55, y);
+      y += 5;
+    });
+
+    // Chart snapshots
+    y += 5;
+    doc.setFontSize(12);
+    doc.setTextColor(30, 58, 138);
+    doc.text('3. Analysis Chart', marginX, y);
+    y += 5;
+
+    try {
+      const chartEl = document.getElementById('analysisChart');
+      if (chartEl && chartEl.querySelector('.plotly')) {
+        const canvas = await html2canvas(chartEl, { scale: 2, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgW = pageW - 2 * marginX;
+        const imgH = (canvas.height / canvas.width) * imgW;
+        if (y + imgH > 280) { doc.addPage(); y = 20; }
+        doc.addImage(imgData, 'PNG', marginX, y, imgW, imgH);
+        y += imgH + 5;
+      }
+    } catch(e) { /* chart capture failed silently */ }
+
+    // Footer
+    const pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Generated by AquiPro — Pumping Test Analyzer | Page ${i} of ${pages}`, pageW/2, 290, { align: 'center' });
+    }
+
+    doc.save(`PTA_Report_${document.getElementById('projectName').value.replace(/\s+/g,'_')}.pdf`);
+    toast('PDF report generated!', 'success');
+  } catch (e) {
+    toast('PDF generation failed: ' + e.message, 'error');
+  } finally {
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Generate PDF Report';
+    btn.disabled = false;
+  }
+}
+
+// =============================================================================
+// CSV/EXCEL EXPORT
+// =============================================================================
+function exportCSV() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length) { toast('No data to export', 'warning'); return; }
+  const method = document.getElementById('analysisMethod').value;
+  const params = getCurrentParams();
+  let csv = 'Time_min,Drawdown_m,Theoretical_m,Residual_m\n';
+  data.forEach(d => {
+    const th = computeTheoretical(d.t, method, params);
+    csv += `${d.t},${d.s},${th.toFixed(6)},${(d.s - th).toFixed(6)}\n`;
+  });
+  downloadFile(csv, 'PTA_data.csv', 'text/csv');
+  toast('CSV exported', 'success');
+}
+
+function exportExcel() {
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length) { toast('No data to export', 'warning'); return; }
+  const method = document.getElementById('analysisMethod').value;
+  const params = getCurrentParams();
+  const rows = data.map(d => {
+    const th = computeTheoretical(d.t, method, params);
+    return { Time_min: d.t, Drawdown_m: d.s, Theoretical_m: +th.toFixed(6), Residual_m: +(d.s - th).toFixed(6) };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+
+  // Results sheet
+  const r = APP.results;
+  const resRows = [
+    { Parameter: 'Transmissivity (T)', Value: r.T, Unit: 'm²/day' },
+    { Parameter: 'Storativity (S)', Value: r.S, Unit: '-' },
+    { Parameter: 'RMSE', Value: r.RMSE, Unit: 'm' },
+    { Parameter: 'R²', Value: r.R2, Unit: '-' },
+    { Parameter: 'ROI', Value: r.ROI, Unit: 'm' },
+  ];
+  const ws2 = XLSX.utils.json_to_sheet(resRows);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Results');
+
+  XLSX.writeFile(wb, 'PTA_results.xlsx');
+  toast('Excel exported', 'success');
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =============================================================================
+// PERSISTENCE — localStorage & JSON
+// =============================================================================
+function autoSave() {
+  try {
+    const state = gatherState();
+    localStorage.setItem('ptaProject', JSON.stringify(state));
+  } catch(e) { /* silently fail */ }
+}
+
+function gatherState() {
+  return {
+    projectName: document.getElementById('projectName').value,
+    projLocation: document.getElementById('projLocation').value,
+    projDate: document.getElementById('projDate').value,
+    projAnalyst: document.getElementById('projAnalyst').value,
+    projNotes: document.getElementById('projNotes').value,
+    pumpRate: document.getElementById('pumpRate').value,
+    pumpRateUnit: document.getElementById('pumpRateUnit').value,
+    aquiferThickness: document.getElementById('aquiferThickness').value,
+    thicknessUnit: document.getElementById('thicknessUnit').value,
+    staticWL: document.getElementById('staticWL').value,
+    screenTop: document.getElementById('screenTop').value,
+    screenBot: document.getElementById('screenBot').value,
+    casingDia: document.getElementById('casingDia').value,
+    aquitardThick: document.getElementById('aquitardThick').value,
+    aquitardK: document.getElementById('aquitardK').value,
+    pumpDuration: document.getElementById('pumpDuration').value,
+    durationUnit: document.getElementById('durationUnit').value,
+    pwLat: document.getElementById('pwLat').value,
+    pwLng: document.getElementById('pwLng').value,
+    pwID: document.getElementById('pwID').value,
+    data: APP.data,
+    results: APP.results,
+    allResults: APP.allResults,
+    method: document.getElementById('analysisMethod')?.value,
+    sliderT: document.getElementById('sliderT')?.value,
+    sliderS: document.getElementById('sliderS')?.value,
+    sliderRB: document.getElementById('sliderRB')?.value,
+    sliderSy: document.getElementById('sliderSy')?.value,
+    axisMode: APP.axisMode,
+    obsWells: Array.from(document.querySelectorAll('.obs-well-entry')).map(e => ({
+      id: e.querySelector('.obs-id').value,
+      lat: e.querySelector('.obs-lat').value,
+      lng: e.querySelector('.obs-lng').value,
+      dist: e.querySelector('.obs-dist').value,
+      screen: e.querySelector('.obs-screen').value,
+    })),
+    timestamp: new Date().toISOString()
+  };
+}
+
+function restoreState(state) {
+  if (!state) return;
+  const fields = ['projectName','projLocation','projDate','projAnalyst','projNotes','pumpRate','pumpRateUnit',
+    'aquiferThickness','thicknessUnit','staticWL','screenTop','screenBot','casingDia','aquitardThick','aquitardK',
+    'pumpDuration','durationUnit','pwLat','pwLng','pwID'];
+  fields.forEach(f => { if (state[f] !== undefined && document.getElementById(f)) document.getElementById(f).value = state[f]; });
+
+  document.getElementById('projectNameToolbar').value = state.projectName || 'Untitled Project';
+
+  if (state.data) { APP.data = state.data; populateDataTable(); applyPreprocessing(); updateDataStats(); }
+  if (state.results) APP.results = state.results;
+  if (state.allResults) APP.allResults = state.allResults;
+  if (state.method && document.getElementById('analysisMethod')) document.getElementById('analysisMethod').value = state.method;
+  if (state.sliderT) document.getElementById('sliderT').value = state.sliderT;
+  if (state.sliderS) document.getElementById('sliderS').value = state.sliderS;
+  if (state.sliderRB) document.getElementById('sliderRB').value = state.sliderRB;
+  if (state.sliderSy) document.getElementById('sliderSy').value = state.sliderSy;
+  if (state.axisMode) { APP.axisMode = state.axisMode; setAxisMode(state.axisMode); }
+
+  // Restore obs wells
+  if (state.obsWells && state.obsWells.length > 1) {
+    for (let i = 1; i < state.obsWells.length; i++) addObsWell();
+    const entries = document.querySelectorAll('.obs-well-entry');
+    state.obsWells.forEach((ow, i) => {
+      if (entries[i]) {
+        entries[i].querySelector('.obs-id').value = ow.id || '';
+        entries[i].querySelector('.obs-lat').value = ow.lat || '';
+        entries[i].querySelector('.obs-lng').value = ow.lng || '';
+        entries[i].querySelector('.obs-dist').value = ow.dist || '';
+        entries[i].querySelector('.obs-screen').value = ow.screen || '';
+      }
+    });
+  } else if (state.obsWells && state.obsWells.length === 1) {
+    const entry = document.querySelector('.obs-well-entry');
+    if (entry) {
+      entry.querySelector('.obs-id').value = state.obsWells[0].id || '';
+      entry.querySelector('.obs-lat').value = state.obsWells[0].lat || '';
+      entry.querySelector('.obs-lng').value = state.obsWells[0].lng || '';
+      entry.querySelector('.obs-dist').value = state.obsWells[0].dist || '';
+      entry.querySelector('.obs-screen').value = state.obsWells[0].screen || '';
+    }
+  }
+
+  onSliderChange();
+  onCoordsChange();
+}
+
+function saveProjectJSON() {
+  const state = gatherState();
+  const json = JSON.stringify(state, null, 2);
+  downloadFile(json, `PTA_${state.projectName.replace(/\s+/g,'_')}.json`, 'application/json');
+  toast('Project saved as JSON', 'success');
+}
+
+function loadProjectJSON() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const state = JSON.parse(ev.target.result);
+        restoreState(state);
+        toast('Project loaded successfully', 'success');
+      } catch(err) { toast('Invalid project file', 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// =============================================================================
+// EXAMPLE DATA
+// =============================================================================
+function loadExampleData() {
+  document.getElementById('projectName').value = 'Springfield Aquifer Test';
+  document.getElementById('projectNameToolbar').value = 'Springfield Aquifer Test';
+  document.getElementById('projLocation').value = 'Springfield Industrial Zone, Well Field A';
+  document.getElementById('projDate').value = '2026-03-22';
+  document.getElementById('projAnalyst').value = 'Dr. Sarah Mitchell';
+  document.getElementById('projNotes').value = 'Constant-rate pumping test on confined sand aquifer. 72-hour duration.';
+  document.getElementById('pumpRate').value = '2500';
+  document.getElementById('pumpRateUnit').value = 'm3/day';
+  document.getElementById('aquiferThickness').value = '25';
+  document.getElementById('thicknessUnit').value = 'm';
+  document.getElementById('staticWL').value = '12.5';
+  document.getElementById('screenTop').value = '15';
+  document.getElementById('screenBot').value = '40';
+  document.getElementById('casingDia').value = '200';
+  document.getElementById('casingUnit').value = 'mm';
+  document.getElementById('pumpDuration').value = '4320';
+  document.getElementById('durationUnit').value = 'min';
+
+  document.getElementById('pwLat').value = '36.7525';
+  document.getElementById('pwLng').value = '3.0420';
+  document.getElementById('pwID').value = 'PW-Springfield';
+
+  const entry = document.querySelector('.obs-well-entry');
+  if (entry) {
+    entry.querySelector('.obs-id').value = 'OW-1';
+    entry.querySelector('.obs-lat').value = '36.7530';
+    entry.querySelector('.obs-lng').value = '3.0428';
+  }
+
+  // Realistic confined aquifer time-drawdown data (T≈450 m²/d, S≈2e-4)
+  APP.data = [
+    {t:0.5,s:0.12},{t:1,s:0.27},{t:1.5,s:0.37},{t:2,s:0.45},{t:2.5,s:0.52},
+    {t:3,s:0.58},{t:4,s:0.68},{t:5,s:0.76},{t:6,s:0.83},{t:8,s:0.94},
+    {t:10,s:1.03},{t:12,s:1.11},{t:15,s:1.21},{t:18,s:1.29},{t:22,s:1.37},
+    {t:26,s:1.44},{t:30,s:1.50},{t:36,s:1.58},{t:42,s:1.64},{t:50,s:1.71},
+    {t:60,s:1.78},{t:72,s:1.85},{t:85,s:1.91},{t:100,s:1.97},{t:120,s:2.04},
+    {t:150,s:2.13},{t:180,s:2.20},{t:220,s:2.28},{t:260,s:2.34},{t:300,s:2.39},
+    {t:360,s:2.47},{t:420,s:2.53},{t:500,s:2.60},{t:600,s:2.68},{t:720,s:2.76},
+    {t:860,s:2.84},{t:1000,s:2.90},{t:1200,s:2.98},{t:1440,s:3.06},{t:1800,s:3.16},
+    {t:2160,s:3.24},{t:2520,s:3.30},{t:2880,s:3.35},{t:3360,s:3.42},{t:3840,s:3.48},
+    {t:4320,s:3.53}
+  ];
+
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  onCoordsChange();
+
+  // Set reasonable initial slider values
+  document.getElementById('sliderT').value = Math.log10(450);
+  document.getElementById('sliderS').value = Math.log10(2e-4);
+  onSliderChange();
+
+  toast('Example dataset loaded! Navigate tabs to explore.', 'success');
+}
+
+function clearAllData() {
+  document.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(el => el.value = '');
+  document.getElementById('projectName').value = 'Untitled Project';
+  document.getElementById('projectNameToolbar').value = 'Untitled Project';
+  APP.data = []; APP.processed = []; APP.results = {}; APP.allResults = [];
+  clearDataTable();
+  toast('All data cleared', 'info');
+}
+
+// =============================================================================
+// KEYBOARD SHORTCUTS
+// =============================================================================
+function showShortcuts() {
+  document.getElementById('shortcutsModal').classList.remove('hidden');
+  document.getElementById('shortcutsModal').style.display = 'flex';
+}
+
+document.addEventListener('keydown', function(e) {
+  // Don't trigger when typing in inputs
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+    if (e.key === 'Escape') e.target.blur();
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveProjectJSON(); }
+    return;
+  }
+
+  if (e.key === '?') { e.preventDefault(); showShortcuts(); }
+  if (e.key >= '1' && e.key <= '6') {
+    const tabs = ['setup','data','diagnostic','analysis','map','report'];
+    switchTab(tabs[parseInt(e.key)-1]);
+  }
+  if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveProjectJSON(); }
+  if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); autoFit(); }
+  if (e.ctrlKey && e.key === 'p') { e.preventDefault(); generatePDF(); }
+  if (e.ctrlKey && e.key === 'd') { e.preventDefault(); toggleTheme(); }
+});
+
+// =============================================================================
+// REPLOT ALL (for theme changes)
+// =============================================================================
+function replotAll() {
+  updateDiagnosticPlot();
+  updateAnalysisPlot();
+}
+
+function getPlotLayout(title, yTitle) {
+  const isDark = APP.isDark;
+  return {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+  };
+}
+
+// =============================================================================
+// PASTE-FROM-EXCEL SUPPORT ON TABLE
+// =============================================================================
+document.addEventListener('paste', function(e) {
+  if (document.getElementById('tab-data').classList.contains('active') && !document.getElementById('mode-manual').classList.contains('hidden')) {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (text && text.includes('\t')) {
+      e.preventDefault();
+      const lines = text.trim().split('\n');
+      const parsed = [];
+      lines.forEach(line => {
+        const parts = line.split('\t').map(s => parseFloat(s.trim()));
+        if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) parsed.push({ t: parts[0], s: parts[1] });
+      });
+      if (parsed.length) {
+        APP.data = [...APP.data, ...parsed].sort((a,b) => a.t - b.t);
+        populateDataTable();
+        applyPreprocessing();
+        updateDataStats();
+        toast(`Pasted ${parsed.length} rows from clipboard`, 'success');
+      }
+    }
+  }
+});
+
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+  loadTheme();
+  document.getElementById('projDate').value = new Date().toISOString().split('T')[0];
+
+  // Initialize map
+  setTimeout(initMap, 300);
+
+  // Try restore from localStorage
+  try {
+    const saved = localStorage.getItem('ptaProject');
+    if (saved) {
+      const state = JSON.parse(saved);
+      if (state.data && state.data.length > 0) {
+        const ago = Date.now() - new Date(state.timestamp).getTime();
+        if (ago < 7 * 24 * 3600 * 1000) {
+          restoreState(state);
+          toast('Previous session restored', 'info');
+        }
+      }
+    }
+  } catch(e) { /* no saved state */ }
+
+  // Initial slider display
+  onSliderChange();
+  onMethodChange();
+});
+</script>
+</body>
+</html>
