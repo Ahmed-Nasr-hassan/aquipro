@@ -7,9 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.2.1/math.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -195,7 +193,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
           <div class="flex gap-2">
             <input id="pumpRate" type="number" class="input-field" step="any" placeholder="0" oninput="autoSave()">
             <select id="pumpRateUnit" class="select-field" style="width:100px" onchange="autoSave()">
-              <option value="m3/day">m³/day</option><option value="m3/s">m³/s</option><option value="L/s">L/s</option>
+              <option value="m3/day">m³/day</option><option value="m3/hr">m³/hr</option><option value="m3/s">m³/s</option><option value="L/s">L/s</option>
               <option value="L/min">L/min</option><option value="gpm">gpm</option><option value="ft3/day">ft³/day</option>
             </select>
           </div>
@@ -249,9 +247,12 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
     </div>
   </div>
 
-  <!-- Well Coordinates -->
+  <!-- Well Configuration -->
   <div class="card">
-    <div class="section-title">📍 Well Coordinates</div>
+    <div class="section-title">📍 Well Configuration</div>
+    <div class="p-2 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs text-amber-700 dark:text-amber-400">
+      💡 Coordinates are <strong>optional</strong>. You can enter a manual <strong>distance (r)</strong> between wells instead. Map features are only available when coordinates are provided.
+    </div>
     <div class="space-y-3">
       <!-- Pumping Well -->
       <div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
@@ -260,8 +261,8 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div><label>Well ID</label><input id="pwID" type="text" class="input-field" value="PW-1"></div>
-          <div><label>Latitude</label><input id="pwLat" type="number" class="input-field" step="any" placeholder="e.g. 36.75" oninput="onCoordsChange()"></div>
-          <div><label>Longitude</label><input id="pwLng" type="number" class="input-field" step="any" placeholder="e.g. 3.05" oninput="onCoordsChange()"></div>
+          <div><label>Latitude <span class="text-slate-400 font-normal">(optional)</span></label><input id="pwLat" type="number" class="input-field" step="any" placeholder="e.g. 36.75" oninput="onCoordsChange()"></div>
+          <div><label>Longitude <span class="text-slate-400 font-normal">(optional)</span></label><input id="pwLng" type="number" class="input-field" step="any" placeholder="e.g. 3.05" oninput="onCoordsChange()"></div>
           <div><label>Total Depth (m)</label><input id="pwDepth" type="number" class="input-field" step="any" placeholder="0"></div>
         </div>
       </div>
@@ -277,9 +278,9 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
           </div>
           <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div><label>Well ID</label><input type="text" class="input-field obs-id" value="OW-1"></div>
-            <div><label>Latitude</label><input type="number" class="input-field obs-lat" step="any" placeholder="Lat" oninput="onCoordsChange()"></div>
-            <div><label>Longitude</label><input type="number" class="input-field obs-lng" step="any" placeholder="Lng" oninput="onCoordsChange()"></div>
-            <div><label>Distance (m)</label><input type="number" class="input-field obs-dist" step="any" placeholder="Auto or manual"></div>
+            <div><label>Latitude <span class="text-slate-400 font-normal">(opt.)</span></label><input type="number" class="input-field obs-lat" step="any" placeholder="Optional" oninput="onCoordsChange()"></div>
+            <div><label>Longitude <span class="text-slate-400 font-normal">(opt.)</span></label><input type="number" class="input-field obs-lng" step="any" placeholder="Optional" oninput="onCoordsChange()"></div>
+            <div><label>Distance r (m) <span class="tooltip-icon">?<span class="tooltip-text">Radial distance from pumping well. Auto-calculated from coordinates, or enter manually.</span></span></label><input type="number" class="input-field obs-dist" step="any" placeholder="Enter or auto"></div>
             <div><label>Screen Interval</label><input type="text" class="input-field obs-screen" placeholder="e.g. 20-30m"></div>
           </div>
         </div>
@@ -305,9 +306,26 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
     <div class="lg:col-span-2 card">
       <div class="section-title">📥 Time-Drawdown Data</div>
       <div class="flex gap-2 mb-3">
+        <button onclick="setDataMode('quick')" class="btn btn-outline text-xs data-mode-btn" data-mode="quick">⚡ Quick Entry</button>
         <button onclick="setDataMode('upload')" class="btn btn-outline text-xs data-mode-btn active" data-mode="upload">📁 Upload CSV/Excel</button>
         <button onclick="setDataMode('manual')" class="btn btn-outline text-xs data-mode-btn" data-mode="manual">✏️ Manual Entry</button>
         <button onclick="setDataMode('paste')" class="btn btn-outline text-xs data-mode-btn" data-mode="paste">📋 Paste Data</button>
+      </div>
+
+      <!-- Quick Entry Mode -->
+      <div id="mode-quick" class="data-mode-content hidden">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Enter time values in one box and drawdown values in the other — one value per line. Both lists must have the same number of values.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold">Time (min) — one per line</label>
+            <textarea id="quickTime" class="input-field font-mono text-xs" rows="12" placeholder="1&#10;2&#10;5&#10;10&#10;20&#10;50&#10;100&#10;200&#10;500&#10;1000"></textarea>
+          </div>
+          <div>
+            <label class="text-xs font-semibold">Drawdown (m) — one per line</label>
+            <textarea id="quickDD" class="input-field font-mono text-xs" rows="12" placeholder="0.15&#10;0.28&#10;0.52&#10;0.76&#10;1.03&#10;1.37&#10;1.71&#10;2.04&#10;2.39&#10;2.68"></textarea>
+          </div>
+        </div>
+        <button onclick="parseQuickEntry()" class="btn btn-primary mt-2 text-xs">Load Data</button>
       </div>
 
       <!-- Upload Mode -->
@@ -446,6 +464,9 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
         <option value="hantush">Leaky — Hantush-Jacob (1955)</option>
         <option value="neuman">Unconfined — Neuman (1975)</option>
         <option value="recovery">Recovery — Theis Recovery</option>
+        <option value="theis-boundary">Boundary — Image Well Theory</option>
+        <option value="step-drawdown">Step-Drawdown (Hantush-Bierschenk)</option>
+        <option value="distance-dd">Distance-Drawdown (Multi-Well)</option>
       </select>
 
       <!-- Parameter Sliders -->
@@ -468,6 +489,32 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
           <label>Specific Yield Sy: <span id="syVal" class="font-mono text-orange-600 dark:text-orange-400">0.1</span></label>
           <div class="slider-container"><input type="range" id="sliderSy" min="-3" max="-0.3" step="0.01" value="-1" oninput="onSliderChange()"></div>
           <label class="mt-2">σ (= S/Sy): <span id="sigmaVal" class="font-mono">0.001</span></label>
+        </div>
+        <div id="boundaryControl" class="hidden">
+          <label>Distance to Boundary (m): <span id="boundDistVal" class="font-mono text-red-600 dark:text-red-400">500</span></label>
+          <div class="slider-container"><input type="range" id="sliderBoundDist" min="1" max="4" step="0.01" value="2.7" oninput="onSliderChange()"></div>
+          <div class="flex justify-between text-[.6rem] text-slate-400"><span>10 m</span><span>100 m</span><span>1 km</span><span>10 km</span></div>
+          <label class="mt-2">Boundary Type:</label>
+          <select id="boundaryType" class="select-field w-full mt-1" onchange="onSliderChange()">
+            <option value="barrier">No-Flow (Barrier)</option>
+            <option value="recharge">Constant-Head (Recharge)</option>
+          </select>
+        </div>
+        <div id="stepDDControl" class="hidden">
+          <label class="text-xs font-semibold mb-1 block">Pumping Steps (Q₁, Q₂, ...)</label>
+          <p class="text-[.65rem] text-slate-400 mb-2">Enter each step: duration (min) and rate (m³/day)</p>
+          <div id="stepRows" class="space-y-1">
+            <div class="flex gap-1 step-row"><input type="number" class="input-field step-dur" placeholder="Duration" step="any" style="width:48%"><input type="number" class="input-field step-q" placeholder="Q (m³/d)" step="any" style="width:48%"><button onclick="this.parentElement.remove()" class="text-red-400 text-xs">✕</button></div>
+            <div class="flex gap-1 step-row"><input type="number" class="input-field step-dur" placeholder="Duration" step="any" style="width:48%"><input type="number" class="input-field step-q" placeholder="Q (m³/d)" step="any" style="width:48%"><button onclick="this.parentElement.remove()" class="text-red-400 text-xs">✕</button></div>
+            <div class="flex gap-1 step-row"><input type="number" class="input-field step-dur" placeholder="Duration" step="any" style="width:48%"><input type="number" class="input-field step-q" placeholder="Q (m³/d)" step="any" style="width:48%"><button onclick="this.parentElement.remove()" class="text-red-400 text-xs">✕</button></div>
+          </div>
+          <button onclick="addStepRow()" class="btn btn-outline text-xs mt-1 w-full">+ Add Step</button>
+          <button onclick="runStepDrawdown()" class="btn btn-success text-xs mt-2 w-full">Analyze Step Test</button>
+        </div>
+        <div id="distDDControl" class="hidden">
+          <label>Analysis Time (min): <span id="distTimeVal" class="font-mono text-cyan-600 dark:text-cyan-400">100</span></label>
+          <div class="slider-container"><input type="range" id="sliderDistTime" min="0" max="4" step="0.01" value="2" oninput="onSliderChange()"></div>
+          <p class="text-[.65rem] text-slate-400 mt-1">Plots drawdown vs. distance at the selected time. Requires multiple observation wells with different distances.</p>
         </div>
       </div>
 
@@ -533,7 +580,14 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 
 <!-- ===== TAB 5: MAP & ROI ===== -->
 <div id="tab-map" class="tab-content space-y-4">
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  <!-- No-coords message -->
+  <div id="mapNoCoords" class="card text-center py-12 hidden">
+    <svg class="w-16 h-16 mx-auto mb-3 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    <p class="text-sm font-medium text-slate-400">Map features require well coordinates</p>
+    <p class="text-xs text-slate-400 mt-1">Go to <strong>Project Setup</strong> and enter Latitude/Longitude for the pumping well and observation wells to enable the interactive map, ROI visualization, and drawdown contours.</p>
+    <button onclick="switchTab('setup')" class="btn btn-primary text-xs mt-4">← Go to Project Setup</button>
+  </div>
+  <div id="mapWithCoords" class="grid grid-cols-1 lg:grid-cols-3 gap-4 hidden">
     <div class="lg:col-span-2 card" style="padding:0;overflow:hidden">
       <div id="map" style="width:100%;height:550px;"></div>
     </div>
@@ -619,6 +673,7 @@ const APP = {
   recovery: [],      // [{tOverTp, sp}] recovery data
   results: {},       // {T, S, Sy, RMSE, R2, NSE, MAE, ROI, method}
   allResults: [],    // history of results for comparison
+  confidenceIntervals: null,
   axisMode: 'loglog',
   obsWellCount: 1,
   measureMode: false,
@@ -668,7 +723,7 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
 
-  if (name === 'map') setTimeout(() => { if (APP.leafletMap) APP.leafletMap.invalidateSize(); }, 100);
+  if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) APP.leafletMap.invalidateSize(); }, 100);
   if (name === 'diagnostic') setTimeout(() => updateDiagnosticPlot(), 100);
   if (name === 'analysis') setTimeout(() => updateAnalysisPlot(), 100);
 }
@@ -677,7 +732,7 @@ function switchTab(name) {
 // UNIT CONVERSION — normalize to SI (m, s, m³/s)
 // =============================================================================
 const UNITS = {
-  flow: { 'm3/day': 1/86400, 'm3/s': 1, 'L/s': 0.001, 'L/min': 1/60000, 'gpm': 6.309e-5, 'ft3/day': 3.2774e-7 },
+  flow: { 'm3/day': 1/86400, 'm3/hr': 1/3600, 'm3/s': 1, 'L/s': 0.001, 'L/min': 1/60000, 'gpm': 6.309e-5, 'ft3/day': 3.2774e-7 },
   length: { 'm': 1, 'ft': 0.3048, 'mm': 0.001, 'in': 0.0254 },
   time: { 'min': 60, 'hr': 3600, 'day': 86400 }
 };
@@ -720,20 +775,38 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+function hasCoordinates() {
+  const pwLat = parseFloat(document.getElementById('pwLat').value);
+  const pwLng = parseFloat(document.getElementById('pwLng').value);
+  return !isNaN(pwLat) && !isNaN(pwLng);
+}
+
+function updateMapVisibility() {
+  const has = hasCoordinates();
+  const noEl = document.getElementById('mapNoCoords');
+  const yesEl = document.getElementById('mapWithCoords');
+  if (noEl) noEl.classList.toggle('hidden', has);
+  if (yesEl) yesEl.classList.toggle('hidden', !has);
+  if (has && APP.leafletMap) APP.leafletMap.invalidateSize();
+}
+
 function onCoordsChange() {
   const pwLat = parseFloat(document.getElementById('pwLat').value);
   const pwLng = parseFloat(document.getElementById('pwLng').value);
-  if (isNaN(pwLat) || isNaN(pwLng)) return;
 
-  document.querySelectorAll('.obs-well-entry').forEach(entry => {
-    const lat = parseFloat(entry.querySelector('.obs-lat').value);
-    const lng = parseFloat(entry.querySelector('.obs-lng').value);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      const dist = haversine(pwLat, pwLng, lat, lng);
-      entry.querySelector('.obs-dist').value = dist.toFixed(2);
-    }
-  });
+  // Only auto-calculate distance if both PW and OW have coordinates
+  if (!isNaN(pwLat) && !isNaN(pwLng)) {
+    document.querySelectorAll('.obs-well-entry').forEach(entry => {
+      const lat = parseFloat(entry.querySelector('.obs-lat').value);
+      const lng = parseFloat(entry.querySelector('.obs-lng').value);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const dist = haversine(pwLat, pwLng, lat, lng);
+        entry.querySelector('.obs-dist').value = dist.toFixed(2);
+      }
+    });
+  }
 
+  updateMapVisibility();
   updateMapMarkers();
   autoSave();
 }
@@ -757,9 +830,9 @@ function addObsWell() {
     </div>
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
       <div><label>Well ID</label><input type="text" class="input-field obs-id" value="OW-${APP.obsWellCount}"></div>
-      <div><label>Latitude</label><input type="number" class="input-field obs-lat" step="any" placeholder="Lat" oninput="onCoordsChange()"></div>
-      <div><label>Longitude</label><input type="number" class="input-field obs-lng" step="any" placeholder="Lng" oninput="onCoordsChange()"></div>
-      <div><label>Distance (m)</label><input type="number" class="input-field obs-dist" step="any" placeholder="Auto"></div>
+      <div><label>Latitude <span class="text-slate-400 font-normal">(opt.)</span></label><input type="number" class="input-field obs-lat" step="any" placeholder="Optional" oninput="onCoordsChange()"></div>
+      <div><label>Longitude <span class="text-slate-400 font-normal">(opt.)</span></label><input type="number" class="input-field obs-lng" step="any" placeholder="Optional" oninput="onCoordsChange()"></div>
+      <div><label>Distance r (m)</label><input type="number" class="input-field obs-dist" step="any" placeholder="Enter or auto"></div>
       <div><label>Screen Interval</label><input type="text" class="input-field obs-screen" placeholder="e.g. 20-30m"></div>
     </div>`;
   container.appendChild(div);
@@ -1130,9 +1203,10 @@ function computeTheoretical(t_min, method, params) {
       return neumanDrawdown(t_min, Q, T, S, Sy || 0.1, r);
     }
     case 'recovery': {
-      // For recovery: s' = (Q/4πT) * W(u) - W(u')
-      // Plotted as s' vs t/t'
       return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW((r*r*S)/(4*T_m2s*t_s));
+    }
+    case 'theis-boundary': {
+      return computeImageWell(t_min, params);
     }
     default:
       return 0;
@@ -1271,30 +1345,8 @@ function computeMetrics(observed, predicted) {
 }
 
 // =============================================================================
-// BOURDET DERIVATIVE
+// BOURDET DERIVATIVE (smoothed with L-spacing)
 // =============================================================================
-function computeBourdetDerivative(data, L) {
-  if (data.length < 3) return [];
-  const deriv = [];
-  for (let i = 1; i < data.length - 1; i++) {
-    const t = data[i].t, s = data[i].s;
-    // Find points within L * ln(t) distance
-    let prev = data[i-1], next = data[i+1];
-    // Three-point weighted formula
-    const dlnT1 = Math.log(t) - Math.log(prev.t);
-    const dlnT2 = Math.log(next.t) - Math.log(t);
-    const ds1 = s - prev.s;
-    const ds2 = next.s - s;
-
-    if (dlnT1 > 0 && dlnT2 > 0) {
-      const d = (ds1/dlnT1 * dlnT2 + ds2/dlnT2 * dlnT1) / (dlnT1 + dlnT2);
-      deriv.push({ t, d: Math.abs(d) });
-    }
-  }
-  return deriv;
-}
-
-// Smoothed derivative with L-spacing
 function computeSmoothedDerivative(data, L) {
   if (data.length < 3) return [];
   const deriv = [];
@@ -1380,13 +1432,271 @@ function diagnoseAquifer(deriv) {
 }
 
 // =============================================================================
+// QUICK ENTRY PARSER
+// =============================================================================
+function parseQuickEntry() {
+  const tLines = document.getElementById('quickTime').value.trim().split('\n').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+  const sLines = document.getElementById('quickDD').value.trim().split('\n').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+  if (!tLines.length || !sLines.length) { toast('Enter values in both columns', 'warning'); return; }
+  if (tLines.length !== sLines.length) { toast(`Mismatch: ${tLines.length} time values vs ${sLines.length} drawdown values`, 'error'); return; }
+  APP.data = tLines.map((t, i) => ({ t, s: sLines[i] })).filter(d => d.t > 0).sort((a,b) => a.t - b.t);
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  toast('Loaded ' + APP.data.length + ' data points', 'success');
+  setDataMode('manual');
+}
+
+// =============================================================================
+// IMAGE WELL (BOUNDARY EFFECTS)
+// =============================================================================
+// Superposition: drawdown = real well + image well
+// Barrier: image has same sign (adds drawdown)
+// Recharge: image has opposite sign (reduces drawdown)
+function computeImageWell(t_min, params) {
+  const { T, S } = params;
+  const Q = getQ_m3s();
+  const r = getR_m();
+  const T_m2s = T / 86400;
+  const t_s = t_min * 60;
+  if (T_m2s <= 0 || t_s <= 0) return 0;
+
+  const dBound = Math.pow(10, parseFloat(document.getElementById('sliderBoundDist').value));
+  const bType = document.getElementById('boundaryType').value;
+  const rImage = Math.sqrt(r*r + 4*dBound*dBound);
+
+  const uReal = (r * r * S) / (4 * T_m2s * t_s);
+  const uImage = (rImage * rImage * S) / (4 * T_m2s * t_s);
+  const sReal = (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(uReal);
+  const sImage = (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(uImage);
+
+  return bType === 'barrier' ? sReal + sImage : sReal - sImage;
+}
+
+// =============================================================================
+// STEP-DRAWDOWN ANALYSIS (Hantush-Bierschenk)
+// =============================================================================
+// s = BQ + CQ^2, where B = aquifer loss coefficient, C = well loss coefficient
+function addStepRow() {
+  const container = document.getElementById('stepRows');
+  const div = document.createElement('div');
+  div.className = 'flex gap-1 step-row';
+  div.innerHTML = '<input type="number" class="input-field step-dur" placeholder="Duration" step="any" style="width:48%"><input type="number" class="input-field step-q" placeholder="Q (m³/d)" step="any" style="width:48%"><button onclick="this.parentElement.remove()" class="text-red-400 text-xs">✕</button>';
+  container.appendChild(div);
+}
+
+function runStepDrawdown() {
+  const rows = document.querySelectorAll('.step-row');
+  const steps = [];
+  rows.forEach(r => {
+    const dur = parseFloat(r.querySelector('.step-dur').value);
+    const q = parseFloat(r.querySelector('.step-q').value);
+    if (!isNaN(dur) && !isNaN(q) && dur > 0 && q > 0) steps.push({ dur, q });
+  });
+  if (steps.length < 2) { toast('Need at least 2 pumping steps', 'warning'); return; }
+
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (!data.length) { toast('Load time-drawdown data first', 'warning'); return; }
+
+  // Extract drawdown at end of each step
+  let cumTime = 0;
+  const stepResults = [];
+  steps.forEach((step, i) => {
+    cumTime += step.dur;
+    const nearest = data.reduce((best, p) => Math.abs(p.t - cumTime) < Math.abs(best.t - cumTime) ? p : best, data[0]);
+    const ds = i === 0 ? nearest.s : nearest.s - stepResults[i-1].sTotal;
+    stepResults.push({ q: step.q, sTotal: nearest.s, ds, sOverQ: nearest.s / step.q });
+  });
+
+  // Linear regression: s/Q = B + C*Q
+  const n = stepResults.length;
+  let sumQ = 0, sumSQ = 0, sumQ2 = 0, sumQSQ = 0;
+  stepResults.forEach(r => { sumQ += r.q; sumSQ += r.sOverQ; sumQ2 += r.q**2; sumQSQ += r.q * r.sOverQ; });
+  const C = (n * sumQSQ - sumQ * sumSQ) / (n * sumQ2 - sumQ**2);
+  const B = (sumSQ - C * sumQ) / n;
+
+  const isDark = APP.isDark;
+  const qVals = stepResults.map(r => r.q);
+  const sOverQVals = stepResults.map(r => r.sOverQ);
+  const fitLine = qVals.map(q => B + C * q);
+
+  Plotly.react('analysisChart', [
+    { x: qVals, y: sOverQVals, mode: 'markers', name: 'Observed s/Q', marker: { color: '#3b82f6', size: 10 } },
+    { x: qVals, y: fitLine, mode: 'lines', name: `Fit: s/Q = ${B.toExponential(3)} + ${C.toExponential(3)}·Q`, line: { color: '#ef4444', width: 2.5 } }
+  ], {
+    xaxis: { title: 'Pumping Rate Q (m³/day)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 's/Q (day/m²)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    margin: { t: 30, r: 20, b: 50, l: 70 }
+  }, { responsive: true });
+
+  // Compute well efficiency for each step
+  let effHtml = '<div class="section-title text-sm">📊 Step-Drawdown Results</div>';
+  effHtml += `<div class="grid grid-cols-2 gap-2">
+    <div class="p-2 rounded bg-blue-50 dark:bg-blue-900/20"><div class="text-[.6rem] text-slate-400">Aquifer Loss (B)</div><div class="font-bold text-sm text-blue-600 dark:text-blue-400">${B.toExponential(4)} day/m²</div></div>
+    <div class="p-2 rounded bg-red-50 dark:bg-red-900/20"><div class="text-[.6rem] text-slate-400">Well Loss (C)</div><div class="font-bold text-sm text-red-600 dark:text-red-400">${C.toExponential(4)} day²/m⁵</div></div>
+  </div>`;
+  effHtml += '<div class="mt-2 space-y-1">';
+  stepResults.forEach((r, i) => {
+    const sAquifer = B * r.q;
+    const sWell = C * r.q * r.q;
+    const efficiency = (sAquifer / (sAquifer + sWell) * 100);
+    effHtml += `<div class="p-2 rounded bg-slate-50 dark:bg-slate-800 text-xs flex justify-between">
+      <span>Step ${i+1}: Q=${r.q.toFixed(0)} m³/d</span>
+      <span>Eff: <strong class="${efficiency > 70 ? 'text-green-600' : efficiency > 50 ? 'text-amber-600' : 'text-red-600'}">${efficiency.toFixed(1)}%</strong></span>
+    </div>`;
+  });
+  effHtml += '</div>';
+
+  // Specific capacity at each step
+  const specCap = stepResults.map(r => r.q / r.sTotal);
+  effHtml += `<div class="mt-2 p-2 rounded bg-purple-50 dark:bg-purple-900/20"><div class="text-[.6rem] text-slate-400">Specific Capacity (best step)</div><div class="font-bold text-sm text-purple-600 dark:text-purple-400">${Math.max(...specCap).toFixed(1)} m³/day/m</div></div>`;
+
+  document.getElementById('resultsContent').innerHTML = effHtml;
+  APP.results = { B, C, wellEfficiency: stepResults, method: 'step-drawdown' };
+  toast('Step-drawdown analysis complete', 'success');
+}
+
+// =============================================================================
+// DISTANCE-DRAWDOWN ANALYSIS
+// =============================================================================
+function computeDistanceDrawdown() {
+  const entries = document.querySelectorAll('.obs-well-entry');
+  const wells = [];
+  entries.forEach(e => {
+    const dist = parseFloat(e.querySelector('.obs-dist').value);
+    const id = e.querySelector('.obs-id').value;
+    if (!isNaN(dist) && dist > 0) wells.push({ dist, id });
+  });
+  if (wells.length < 2) { toast('Need at least 2 observation wells with distances', 'warning'); return; }
+
+  const t = Math.pow(10, parseFloat(document.getElementById('sliderDistTime').value));
+  const params = getCurrentParams();
+  const Q = getQ_m3s();
+  const T_m2s = params.T / 86400;
+  const t_s = t * 60;
+
+  const isDark = APP.isDark;
+  const distances = wells.map(w => w.dist).sort((a,b) => a - b);
+  const dMin = Math.min(...distances) * 0.5;
+  const dMax = Math.max(...distances) * 2;
+
+  // Theoretical curve
+  const rVals = [], sVals = [];
+  for (let i = 0; i <= 100; i++) {
+    const r = dMin * Math.pow(dMax/dMin, i/100);
+    const u = (r * r * params.S) / (4 * T_m2s * t_s);
+    const s = (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(u);
+    rVals.push(r);
+    sVals.push(s);
+  }
+
+  // Observed data points from the actual data at this time
+  const data = APP.processed.length ? APP.processed : APP.data;
+  const nearest = data.reduce((best, p) => Math.abs(p.t - t) < Math.abs(best.t - t) ? p : best, data[0] || {t:0,s:0});
+
+  Plotly.react('analysisChart', [
+    { x: [getR_m()], y: [nearest.s], mode: 'markers', name: `Observed at t=${t.toFixed(0)} min`, marker: { color: '#3b82f6', size: 10, symbol: 'circle' } },
+    { x: rVals, y: sVals, mode: 'lines', name: `Theoretical (T=${params.T.toFixed(0)}, S=${params.S.toExponential(2)})`, line: { color: '#ef4444', width: 2.5 } }
+  ], {
+    xaxis: { title: 'Distance from PW (m)', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'Drawdown (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    margin: { t: 30, r: 20, b: 50, l: 60 }
+  }, { responsive: true });
+}
+
+// =============================================================================
+// CONFIDENCE INTERVALS (from Jacobian at optimum)
+// =============================================================================
+function computeConfidenceIntervals(data, method, fittedParams, bounds) {
+  const n = data.length;
+  const np = fittedParams.length;
+  if (n <= np) return null;
+
+  const paramObj = { T: fittedParams[0], S: fittedParams[1] };
+  if (np > 2 && method === 'neuman') paramObj.Sy = fittedParams[2];
+  if (np > 2 && method === 'hantush') paramObj.rOverB = fittedParams[2];
+
+  // Compute residual variance
+  const residuals = data.map(d => d.s - computeTheoretical(d.t, method, paramObj));
+  const ssRes = residuals.reduce((s, r) => s + r*r, 0);
+  const sigmaSquared = ssRes / (n - np);
+
+  // Compute Jacobian at the optimum (in log space for better conditioning)
+  const logParams = fittedParams.map(p => Math.log(Math.max(p, 1e-20)));
+  const J = [];
+  for (let j = 0; j < np; j++) {
+    const h = Math.max(Math.abs(logParams[j]) * 1e-5, 1e-8);
+    const paramsPlus = [...logParams]; paramsPlus[j] += h;
+    const bpPlus = paramsPlus.map(v => Math.exp(v));
+    const objPlus = { T: bpPlus[0], S: bpPlus[1] };
+    if (np > 2 && method === 'neuman') objPlus.Sy = bpPlus[2];
+    if (np > 2 && method === 'hantush') objPlus.rOverB = bpPlus[2];
+    const resPlus = data.map(d => d.s - computeTheoretical(d.t, method, objPlus));
+    J.push(data.map((_, i) => (resPlus[i] - residuals[i]) / h));
+  }
+
+  // J^T J
+  const JtJ = Array.from({length: np}, () => new Array(np).fill(0));
+  for (let j = 0; j < np; j++)
+    for (let k = 0; k < np; k++)
+      for (let i = 0; i < n; i++) JtJ[j][k] += J[j][i] * J[k][i];
+
+  // Invert J^T J
+  const inv = invertMatrix(JtJ);
+  if (!inv) return null;
+
+  // 95% confidence: t-critical ≈ 1.96 for large n
+  const tCrit = n > 30 ? 1.96 : 2.045; // simplified
+  const ci = fittedParams.map((p, j) => {
+    const variance = sigmaSquared * inv[j][j];
+    const se = Math.sqrt(Math.max(variance, 0)) * p; // delta method for log transform
+    return { value: p, lower: Math.max(p - tCrit * se, 0), upper: p + tCrit * se, se };
+  });
+
+  return ci;
+}
+
+function invertMatrix(M) {
+  const n = M.length;
+  const aug = M.map((row, i) => [...row, ...Array.from({length: n}, (_, j) => i === j ? 1 : 0)]);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let row = col+1; row < n; row++) if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    if (Math.abs(aug[col][col]) < 1e-20) return null;
+    const pivot = aug[col][col];
+    for (let j = 0; j < 2*n; j++) aug[col][j] /= pivot;
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const f = aug[row][col];
+      for (let j = 0; j < 2*n; j++) aug[row][j] -= f * aug[col][j];
+    }
+  }
+  return aug.map(row => row.slice(n));
+}
+
+// =============================================================================
 // ANALYSIS PLOTS & CONTROLS
 // =============================================================================
 function onMethodChange() {
   const method = document.getElementById('analysisMethod').value;
   document.getElementById('leakageControl').classList.toggle('hidden', method !== 'hantush');
   document.getElementById('neumanControl').classList.toggle('hidden', method !== 'neuman');
-  updateAnalysisPlot();
+  document.getElementById('boundaryControl').classList.toggle('hidden', method !== 'theis-boundary');
+  document.getElementById('stepDDControl').classList.toggle('hidden', method !== 'step-drawdown');
+  document.getElementById('distDDControl').classList.toggle('hidden', method !== 'distance-dd');
+
+  // Hide standard sliders for special methods
+  const hideStandard = ['step-drawdown'].includes(method);
+  document.getElementById('paramControls').querySelectorAll(':scope > div:not([id])').forEach(d => d.classList.toggle('hidden', hideStandard));
+  document.getElementById('autoFitBtn').classList.toggle('hidden', ['step-drawdown','distance-dd'].includes(method));
+
+  if (method === 'distance-dd') computeDistanceDrawdown();
+  else updateAnalysisPlot();
 }
 
 function onSliderChange() {
@@ -1404,8 +1714,18 @@ function onSliderChange() {
     document.getElementById('syVal').textContent = Sy.toExponential(2);
     document.getElementById('sigmaVal').textContent = (S / Sy).toExponential(3);
   }
-  updateAnalysisPlot();
-  updateResults();
+  if (document.getElementById('sliderBoundDist')) {
+    const bd = Math.pow(10, parseFloat(document.getElementById('sliderBoundDist').value));
+    document.getElementById('boundDistVal').textContent = bd < 1000 ? bd.toFixed(0) : (bd/1000).toFixed(1) + 'k';
+  }
+  if (document.getElementById('sliderDistTime')) {
+    const dt = Math.pow(10, parseFloat(document.getElementById('sliderDistTime').value));
+    document.getElementById('distTimeVal').textContent = dt.toFixed(0);
+  }
+
+  const method = document.getElementById('analysisMethod').value;
+  if (method === 'distance-dd') computeDistanceDrawdown();
+  else { updateAnalysisPlot(); updateResults(); }
 }
 
 function setAxisMode(mode) {
@@ -1423,7 +1743,8 @@ function getCurrentParams() {
   const S = Math.pow(10, parseFloat(document.getElementById('sliderS').value));
   const rOverB = parseFloat(document.getElementById('sliderRB').value);
   const Sy = Math.pow(10, parseFloat(document.getElementById('sliderSy').value));
-  return { T, S, rOverB, Sy };
+  const boundDist = Math.pow(10, parseFloat(document.getElementById('sliderBoundDist').value));
+  return { T, S, rOverB, Sy, boundDist };
 }
 
 function autoFit() {
@@ -1451,6 +1772,11 @@ function autoFit() {
         bounds = [[0.01, 1e6], [1e-10, 0.5]];
       }
 
+      if (method === 'theis-boundary') {
+        initial = [p.T, p.S];
+        bounds = [[0.01, 1e6], [1e-10, 0.5]];
+      }
+
       const result = levenbergMarquardt(data, method, initial, bounds);
 
       // Update sliders
@@ -1458,6 +1784,9 @@ function autoFit() {
       document.getElementById('sliderS').value = Math.log10(result[1]);
       if (method === 'hantush' && result[2]) document.getElementById('sliderRB').value = result[2];
       if (method === 'neuman' && result[2]) document.getElementById('sliderSy').value = Math.log10(result[2]);
+
+      // Compute confidence intervals
+      APP.confidenceIntervals = computeConfidenceIntervals(data, method, result, bounds);
 
       onSliderChange();
       toast('Auto-fit complete!', 'success');
@@ -1475,6 +1804,7 @@ function updateResults() {
   if (!data.length) return;
 
   const method = document.getElementById('analysisMethod').value;
+  if (method === 'step-drawdown' || method === 'distance-dd') return;
   const params = getCurrentParams();
   const predicted = data.map(d => computeTheoretical(d.t, method, params));
   const observed = data.map(d => d.s);
@@ -1524,6 +1854,25 @@ function updateResults() {
       <div class="font-bold text-sm text-purple-600 dark:text-purple-400">${ROI.toFixed(1)} m</div>
     </div>`;
   }
+
+  // Confidence intervals
+  if (APP.confidenceIntervals) {
+    const ci = APP.confidenceIntervals;
+    const names = ['T (m²/day)', 'S'];
+    if (method === 'neuman' && ci.length > 2) names.push('Sy');
+    if (method === 'hantush' && ci.length > 2) names.push('r/B');
+    html += `<div class="mt-2 p-2 rounded bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-700">
+      <div class="text-[.6rem] text-slate-400 mb-1">95% Confidence Intervals</div>
+      <div class="space-y-1 text-xs">`;
+    ci.forEach((c, i) => {
+      if (i < names.length) {
+        const fmt = v => v < 0.01 ? v.toExponential(3) : v.toFixed(4);
+        html += `<div class="flex justify-between"><span class="text-slate-500">${names[i]}</span><span class="font-mono">[${fmt(c.lower)}, ${fmt(c.upper)}]</span></div>`;
+      }
+    });
+    html += `</div></div>`;
+  }
+
   el.innerHTML = html;
 
   // Store in history
@@ -1542,6 +1891,7 @@ function updateAnalysisPlot() {
   }
 
   const method = document.getElementById('analysisMethod').value;
+  if (method === 'step-drawdown' || method === 'distance-dd') return;
   const params = getCurrentParams();
 
   // Generate theoretical curve with more points
@@ -1776,7 +2126,7 @@ function initMap() {
 }
 
 function updateMapMarkers() {
-  if (!APP.leafletMap) return;
+  if (!APP.leafletMap || !hasCoordinates()) return;
   const pwLat = parseFloat(document.getElementById('pwLat').value);
   const pwLng = parseFloat(document.getElementById('pwLng').value);
 
@@ -1816,10 +2166,10 @@ function updateMapMarkers() {
 }
 
 function updateROI() {
+  if (!hasCoordinates()) { toast('Map features require well coordinates. Enter lat/lng in Project Setup.', 'warning'); return; }
   if (!APP.leafletMap) return;
   const pwLat = parseFloat(document.getElementById('pwLat').value);
   const pwLng = parseFloat(document.getElementById('pwLng').value);
-  if (isNaN(pwLat) || isNaN(pwLng)) { toast('Set pumping well coordinates', 'warning'); return; }
 
   // Remove old ROI and contours
   if (APP.mapMarkers.roi) APP.leafletMap.removeLayer(APP.mapMarkers.roi);
@@ -1882,6 +2232,7 @@ function updateROI() {
 }
 
 function startMeasure() {
+  if (!APP.leafletMap) { toast('Map not available', 'warning'); return; }
   APP.measureMode = !APP.measureMode;
   APP.measurePoints = [];
   APP.mapMarkers.measure.forEach(m => APP.leafletMap.removeLayer(m));
@@ -2022,25 +2373,37 @@ async function generatePDF() {
       y += 5;
     });
 
-    // Chart snapshots
-    y += 5;
-    doc.setFontSize(12);
-    doc.setTextColor(30, 58, 138);
-    doc.text('3. Analysis Chart', marginX, y);
-    y += 5;
+    // Chart snapshots — use Plotly.toImage (works even when tab is hidden)
+    const chartConfigs = [
+      { id: 'analysisChart', title: '3. Analysis Chart' },
+      { id: 'diagnosticChart', title: '4. Diagnostic Plot' },
+      { id: 'residualChart', title: '5. Residuals' },
+    ];
 
-    try {
-      const chartEl = document.getElementById('analysisChart');
-      if (chartEl && chartEl.querySelector('.plotly')) {
-        const canvas = await html2canvas(chartEl, { scale: 2, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
+    for (const cfg of chartConfigs) {
+      const chartEl = document.getElementById(cfg.id);
+      if (!chartEl || !chartEl.data || !chartEl.data.length) continue;
+
+      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(30, 58, 138);
+      doc.text(cfg.title, marginX, y);
+      y += 5;
+
+      try {
+        const imgData = await Plotly.toImage(chartEl, { format: 'png', width: 900, height: cfg.id === 'residualChart' ? 250 : 500, scale: 2 });
         const imgW = pageW - 2 * marginX;
-        const imgH = (canvas.height / canvas.width) * imgW;
-        if (y + imgH > 280) { doc.addPage(); y = 20; }
+        const imgH = cfg.id === 'residualChart' ? 35 : 65;
+        if (y + imgH > 270) { doc.addPage(); y = 20; }
         doc.addImage(imgData, 'PNG', marginX, y, imgW, imgH);
         y += imgH + 5;
+      } catch(e) { 
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text('(Chart not available — run analysis first)', marginX, y);
+        y += 5;
       }
-    } catch(e) { /* chart capture failed silently */ }
+    }
 
     // Footer
     const pages = doc.getNumberOfPages();
@@ -2144,9 +2507,12 @@ function gatherState() {
     aquitardK: document.getElementById('aquitardK').value,
     pumpDuration: document.getElementById('pumpDuration').value,
     durationUnit: document.getElementById('durationUnit').value,
+    swlUnit: document.getElementById('swlUnit').value,
+    casingUnit: document.getElementById('casingUnit').value,
     pwLat: document.getElementById('pwLat').value,
     pwLng: document.getElementById('pwLng').value,
     pwID: document.getElementById('pwID').value,
+    pwDepth: document.getElementById('pwDepth').value,
     data: APP.data,
     results: APP.results,
     allResults: APP.allResults,
@@ -2171,7 +2537,7 @@ function restoreState(state) {
   if (!state) return;
   const fields = ['projectName','projLocation','projDate','projAnalyst','projNotes','pumpRate','pumpRateUnit',
     'aquiferThickness','thicknessUnit','staticWL','screenTop','screenBot','casingDia','aquitardThick','aquitardK',
-    'pumpDuration','durationUnit','pwLat','pwLng','pwID'];
+    'pumpDuration','durationUnit','swlUnit','casingUnit','pwLat','pwLng','pwID','pwDepth'];
   fields.forEach(f => { if (state[f] !== undefined && document.getElementById(f)) document.getElementById(f).value = state[f]; });
 
   document.getElementById('projectNameToolbar').value = state.projectName || 'Untitled Project';
@@ -2405,6 +2771,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initial slider display
   onSliderChange();
   onMethodChange();
+  updateMapVisibility();
 });
 </script>
 </body>
