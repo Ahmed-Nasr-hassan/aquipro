@@ -127,7 +127,13 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <option value="#hantush">Hantush-Jacob Method</option>
     <option value="#neuman">Neuman Method</option>
     <option value="#recovery">Theis Recovery</option>
+    <option value="#image-well">Image Well (Boundary)</option>
+    <option value="#step-drawdown">Step-Drawdown</option>
+    <option value="#distance-dd">Distance-Drawdown</option>
     <option value="#derivative">Bourdet Derivative</option>
+    <option value="#confidence">Confidence Intervals</option>
+    <option value="#superposition">Superposition (Variable Rates)</option>
+    <option value="#partial-pen">Partial Penetration & Skin</option>
     <option value="#parameters">Understanding Parameters</option>
     <option value="#roi">Radius of Influence</option>
     <option value="#tips">Tips & Best Practices</option>
@@ -161,7 +167,13 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <a href="#hantush" class="sub">Hantush-Jacob (1955)</a>
       <a href="#neuman" class="sub">Neuman (1975)</a>
       <a href="#recovery" class="sub">Theis Recovery</a>
+      <a href="#image-well" class="sub">Image Well (Boundary)</a>
+      <a href="#step-drawdown" class="sub">Step-Drawdown</a>
+      <a href="#distance-dd" class="sub">Distance-Drawdown</a>
       <a href="#derivative">Bourdet Derivative</a>
+      <a href="#confidence">Confidence Intervals</a>
+      <a href="#superposition">Superposition</a>
+      <a href="#partial-pen">Partial Pen. & Skin</a>
 
       <div class="text-[.65rem] font-bold uppercase text-slate-400 tracking-wider mb-2 mt-4 px-3">Reference</div>
       <a href="#parameters">Understanding Parameters</a>
@@ -251,32 +263,68 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <table>
       <thead><tr><th>Parameter</th><th>Description</th><th>Typical Range</th></tr></thead>
       <tbody>
-        <tr><td><strong>Q</strong> — Pumping Rate</td><td>Constant flow rate extracted during the test</td><td>10–10,000 m³/day</td></tr>
+        <tr><td><strong>Q</strong> — Pumping Rate</td><td>Constant flow rate extracted during the test (supports m³/day, m³/hr, L/s, gpm, etc.)</td><td>10–10,000 m³/day</td></tr>
         <tr><td><strong>b</strong> — Aquifer Thickness</td><td>Saturated thickness of the aquifer formation</td><td>5–200 m</td></tr>
         <tr><td><strong>SWL</strong> — Static Water Level</td><td>Water level before pumping began (depth below ground)</td><td>1–100 m</td></tr>
         <tr><td><strong>Screen Interval</strong></td><td>Depth range where the well screen is placed</td><td>Within the aquifer</td></tr>
         <tr><td><strong>b'</strong> — Aquitard Thickness</td><td>Thickness of confining layer (for leaky aquifer analysis)</td><td>1–50 m</td></tr>
         <tr><td><strong>K'</strong> — Aquitard Conductivity</td><td>Vertical hydraulic conductivity of the aquitard</td><td>10⁻⁶ to 10⁻² m/day</td></tr>
+        <tr><td><strong>Skin Factor</strong></td><td>Dimensionless wellbore skin representing extra flow resistance (positive = damage) or stimulation (negative) at the well face. Only relevant when analyzing drawdown in the pumping well itself.</td><td>-5 to +20</td></tr>
+        <tr><td><strong>Kz/Kr</strong> — Anisotropy Ratio</td><td>Ratio of vertical to horizontal hydraulic conductivity. Affects the rigorous Neuman unconfined solution and partial penetration correction.</td><td>0.01–1.0</td></tr>
       </tbody>
     </table>
 
     <div class="note">
-      <strong>📝 Units:</strong> AquiPro has a built-in unit conversion engine. You can enter Q in gpm, L/s, m³/day, or any supported unit — the app internally converts everything to SI for calculations. You can switch units anytime without re-entering data.
+      <strong>📝 Units:</strong> AquiPro has a built-in unit conversion engine. You can enter Q in gpm, L/s, m³/day, m³/hr, or any supported unit — the app internally converts everything to SI for calculations. You can switch units anytime without re-entering data.
     </div>
 
-    <h3>Well Coordinates</h3>
+    <h3>Variable Pumping Rate Schedule (Superposition)</h3>
+    <p>Real pumping tests rarely maintain a perfectly constant rate. AquiPro supports <strong>variable pumping rates</strong> using the <strong>principle of superposition</strong>.</p>
+    <p>Enable the checkbox in Project Setup to define a rate schedule — each row specifies a start time and pumping rate. AquiPro decomposes the variable-rate test into a series of step changes and sums their individual drawdown contributions:</p>
+    <div class="eq-box">
+      \( s(t) = \sum_{i} \frac{\Delta Q_i}{4\pi T}\, W\!\left(\frac{r^2 S}{4T(t - t_i)}\right) \quad \text{for } t > t_i \)
+    </div>
+    <p>where \(\Delta Q_i = Q_i - Q_{i-1}\) is the rate change at time \(t_i\). This works with all analysis methods (Theis, Cooper-Jacob, Hantush, Neuman, etc.) and is fully integrated with the Auto-Fit optimizer.</p>
+
+    <div class="tip">
+      <strong>💡 Tip:</strong> For a test where the pump was accidentally shut off and restarted, define the off period as a step with rate = 0.
+    </div>
+
+    <h3>Skin Effect & Partial Penetration</h3>
+    <p>AquiPro automatically applies two wellbore corrections when the relevant inputs are provided:</p>
+    <ul>
+      <li><strong>Skin effect:</strong> An additive constant head loss \(\Delta s = \frac{Q\, s_w}{2\pi T}\) where \(s_w\) is the dimensionless skin factor entered in Project Setup. Only meaningful when analyzing drawdown measured in the pumping well.</li>
+      <li><strong>Partial penetration:</strong> When the screen intervals of both the pumping well and observation well are specified and do not span the full aquifer thickness, AquiPro computes the Hantush (1964) steady-state correction using a K₀ Bessel function series:
+        <div class="eq-box">
+          \( f_s = \frac{4b^2}{l_p\,l_o} \sum_{n=1}^{\infty} \frac{F_n^{(PW)} \cdot F_n^{(OW)}}{n^2\pi^2} \, K_0\!\left(\frac{n\pi r}{b\sqrt{K_z/K_r}}\right) \)
+        </div>
+        This correction is additive to the well function and accounts for the 3D flow distortion near partially penetrating wells. It becomes negligible when r/b > 2.5.
+      </li>
+    </ul>
+
+    <h3>Well Configuration</h3>
+    <p>AquiPro offers two ways to define well positions:</p>
+
+    <h4>Option A: Enter Coordinates (Full Features)</h4>
     <p>Enter latitude/longitude for the pumping well and observation wells. AquiPro automatically computes the <strong>radial distance (r)</strong> between wells using the <strong>Haversine formula</strong>:</p>
     <div class="eq-box">
       \( r = 2R \arcsin\sqrt{\sin^2\!\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\,\cos\phi_2\,\sin^2\!\left(\frac{\Delta\lambda}{2}\right)} \)
     </div>
-    <p>where R = 6,371,000 m (Earth's radius). You can also manually override the calculated distance if you have a more precise field measurement.</p>
+    <p>where R = 6,371,000 m (Earth's radius). You can also manually override the calculated distance if you have a more precise field measurement. Entering coordinates enables all map features including well markers, ROI visualization, and drawdown contours.</p>
+
+    <h4>Option B: Manual Distance Only (No Coordinates)</h4>
+    <p>Latitude and longitude fields are <strong>optional</strong>. If you don't have GPS coordinates, simply leave them blank and enter the <strong>radial distance (r)</strong> directly in the distance field. All analytical methods work without coordinates — only the interactive map features will be disabled.</p>
+
+    <div class="note">
+      <strong>📝 Map Availability:</strong> When no coordinates are provided, the <em>Map & ROI</em> tab will display a message explaining that map features require well coordinates. A convenient button takes you back to Project Setup to add them if needed.
+    </div>
 
     <div class="tip">
       <strong>💡 Tip:</strong> You can also click directly on the map in the <em>Map & ROI</em> tab to place wells instead of typing coordinates.
     </div>
 
     <h2 id="tab-data">📊 Tab 2: Data Input</h2>
-    <p>Load your time-drawdown data using one of three methods:</p>
+    <p>Load your time-drawdown data using one of four methods:</p>
 
     <h3>Upload CSV / Excel</h3>
     <p>Drag and drop a <code>.csv</code> or <code>.xlsx</code> file onto the drop zone. AquiPro auto-detects columns named "Time", "t", "Drawdown", "s", or similar. Your file should have at least two columns: time (in minutes) and drawdown (in meters).</p>
@@ -286,6 +334,9 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
 
     <h3>Paste Data</h3>
     <p>Paste raw comma or tab-separated data into the text area and click "Parse Data".</p>
+
+    <h3>⚡ Quick Entry</h3>
+    <p>The simplest method — two side-by-side text areas where you type (or paste) one value per line: <strong>time values</strong> on the left and <strong>drawdown values</strong> on the right. Click <strong>"Load Data"</strong> and AquiPro validates that both columns have the same number of entries before importing. Ideal for quickly entering small datasets from field notes.</p>
 
     <h3>Data Preprocessing</h3>
     <p>The right panel offers four preprocessing tools:</p>
@@ -343,7 +394,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
         <span class="tag" style="background:#fee2e2;color:#dc2626">Barrier</span>
         <h4>Rising Derivative</h4>
         <p class="text-sm text-slate-500 dark:text-slate-400">Derivative continuously increases (doubles the IARF level). An <strong>impermeable boundary</strong> causes extra drawdown as the cone hits the barrier.</p>
-        <p class="text-sm"><strong>Use:</strong> Image well method or boundary-aware Theis</p>
+        <p class="text-sm"><strong>Use:</strong> <a href="#image-well">Image Well Theory</a> (Boundary — Image Well in AquiPro)</p>
       </div>
     </div>
 
@@ -355,13 +406,13 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <p>This is where you determine the aquifer's hydraulic properties by matching your observed data to a theoretical type curve.</p>
 
     <h3>Choosing a Method</h3>
-    <p>Select a method from the dropdown based on your diagnostic plot results or aquifer knowledge. AquiPro implements five methods (see the <a href="#theory">Theory section</a> below for full equations).</p>
+    <p>Select a method from the dropdown based on your diagnostic plot results or aquifer knowledge. AquiPro implements eight methods (see the <a href="#theory">Theory section</a> below for full equations), including three specialized analyses: step-drawdown, boundary (image well), and distance-drawdown.</p>
 
     <h3>Manual Curve Matching</h3>
     <p>Use the <strong>T</strong> and <strong>S</strong> sliders to manually adjust the theoretical curve until it overlays the observed data. The sliders are logarithmic — small movements produce large parameter changes. Watch the RMSE and R² values update in real time.</p>
 
     <h3>Automatic Fitting (Levenberg-Marquardt)</h3>
-    <p>Click <strong>"Auto-Fit"</strong> and AquiPro will run the <strong>Levenberg-Marquardt</strong> nonlinear least-squares optimizer to find the T and S (and Sy or r/B where applicable) that minimize the sum of squared residuals between observed and theoretical drawdown.</p>
+    <p>Click <strong>"Auto-Fit"</strong> and AquiPro will run the <strong>Levenberg-Marquardt</strong> nonlinear least-squares optimizer to find the T and S (and Sy or r/B where applicable) that minimize the sum of squared residuals between observed and theoretical drawdown. After convergence, <strong>95% confidence intervals</strong> are automatically computed for all fitted parameters (see <a href="#confidence">Confidence Intervals</a>).</p>
 
     <div class="card">
       <h4 style="margin-top:0">How the Optimizer Works</h4>
@@ -402,8 +453,19 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <h3>Drawdown Prediction</h3>
     <p>Enter a future time value to predict the drawdown at that time using the fitted model. Useful for estimating drawdown at the end of a planned pumping period.</p>
 
+    <h3>Confidence Intervals</h3>
+    <p>After a successful <strong>Auto-Fit</strong>, AquiPro automatically calculates <strong>95% confidence intervals</strong> for the fitted parameters (T, S, and Sy or r/B where applicable). The confidence intervals are computed from the Levenberg-Marquardt Jacobian and residual variance using the delta method for log-transformed parameters. These appear in a dedicated section below the main results and help you assess parameter uncertainty.</p>
+
+    <h3>Step-Drawdown, Boundary & Distance-Drawdown</h3>
+    <p>Three specialized analysis types have their own controls:</p>
+    <ul>
+      <li><strong>Step-Drawdown (Hantush-Bierschenk)</strong> — Define pumping steps (duration + rate) in the dedicated panel, then click "Analyze Step Test" to compute aquifer loss (B), well loss (C), efficiency, and specific capacity.</li>
+      <li><strong>Boundary — Image Well Theory</strong> — Use the distance-to-boundary slider and select the boundary type (no-flow barrier or constant-head recharge) to model boundary effects via superposition.</li>
+      <li><strong>Distance-Drawdown (Multi-Well)</strong> — Requires multiple observation wells at different distances. Select an analysis time to plot theoretical drawdown versus distance.</li>
+    </ul>
+
     <h2 id="tab-map">🗺️ Tab 5: Map & ROI</h2>
-    <p>An interactive Leaflet.js map for spatial visualization.</p>
+    <p>An interactive Leaflet.js map for spatial visualization. <strong>Requires well coordinates</strong> — if coordinates are not provided, this tab displays a message with a link back to Project Setup.</p>
 
     <h3>Well Markers</h3>
     <ul>
@@ -426,7 +488,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <p>Generate professional, client-ready outputs.</p>
     <ul>
       <li><strong>Build Preview</strong> — Renders an HTML preview of the report within the tab</li>
-      <li><strong>Generate PDF</strong> — Creates a multi-page PDF with cover page, input parameters, results table, chart snapshot, and footer with page numbers</li>
+      <li><strong>Generate PDF</strong> — Creates a multi-page PDF with cover page, input parameters, results table, embedded charts (analysis, diagnostic, and residual plots captured via Plotly), and footer with page numbers</li>
       <li><strong>Export CSV</strong> — Downloads time, observed drawdown, theoretical drawdown, and residuals as a CSV file</li>
       <li><strong>Export Excel</strong> — Downloads an XLSX file with two sheets: one for data and one for results</li>
     </ul>
@@ -537,17 +599,26 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <li><strong>Late time:</strong> Water drains by gravity from the declining water table. Drawdown follows a second Theis curve governed by Sy (specific yield).</li>
     </ul>
 
-    <p>Neuman's solution introduces the dimensionless parameter:</p>
+    <p>AquiPro implements the <strong>rigorous Neuman (1972) solution</strong> using numerical Laplace transform inversion via the <strong>Stehfest algorithm</strong> (N=12). The Laplace-space drawdown is:</p>
     <div class="eq-box">
-      \( \sigma = \frac{S}{S_y} \)
+      \( \bar{s}(r,\, p) = \frac{Q}{4\pi T\, p}\; K_0\!\left(r\,\sqrt{\frac{p\,\Phi(p)}{T}}\right) \)
     </div>
-    <p>AquiPro approximates the Neuman solution using a dual-Theis approach with a sigmoid transition between early-time (elastic) and late-time (gravity) segments, controlled by σ.</p>
+    <p>where K₀ is the modified Bessel function of the second kind, and the <strong>effective storage</strong> accounts for delayed yield:</p>
+    <div class="eq-box">
+      \( \Phi(p) = S + S_y \cdot \frac{\alpha}{\,p + \alpha\,} \qquad \text{with}\quad \alpha = \frac{K_z}{b \cdot S_y} \)
+    </div>
+    <p>At early time (\(p \to \infty\)), Φ → S (elastic storage only). At late time (\(p \to 0\)), Φ → S + Sy (full gravity drainage). The drainage constant α depends on the <strong>Kz/Kr anisotropy ratio</strong> (set in Project Setup) and the aquifer thickness b.</p>
+
+    <div class="note">
+      <strong>📝 Numerical Method:</strong> The Stehfest algorithm approximates the inverse Laplace transform using 12 weighted evaluations of the Laplace-space function. This avoids the need for Bessel function integration in the time domain while maintaining high accuracy for diffusion-type solutions.
+    </div>
 
     <h4>Parameters Solved</h4>
     <ul>
-      <li><strong>T</strong> — Transmissivity (from both early and late segments)</li>
+      <li><strong>T</strong> — Transmissivity</li>
       <li><strong>S</strong> — Elastic storativity (early time)</li>
       <li><strong>Sy</strong> — Specific yield (late time, typically 0.01–0.3)</li>
+      <li><strong>Kz/Kr</strong> — Anisotropy ratio (from Project Setup, not fitted)</li>
     </ul>
 
     <!-- RECOVERY -->
@@ -564,6 +635,89 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <li>It works even when the pumping rate was not perfectly constant</li>
     </ul>
 
+    <!-- IMAGE WELL -->
+    <h3 id="image-well">6. Image Well Theory — Boundary Effects</h3>
+    <span class="tag" style="background:#fee2e2;color:#dc2626">Boundary</span>
+    <p>When a pumping well is near a linear hydraulic boundary, the boundary's effect can be modeled by introducing an <strong>imaginary (image) well</strong> placed symmetrically on the opposite side of the boundary.</p>
+
+    <h4>Two Boundary Types</h4>
+    <ul>
+      <li><strong>No-flow barrier</strong> (impermeable boundary, e.g. a fault or bedrock contact): The image well <em>pumps</em> at the same rate Q — their effects add, increasing drawdown.</li>
+      <li><strong>Constant-head recharge</strong> (e.g. a river or lake): The image well <em>recharges</em> at rate Q — its effect subtracts, reducing drawdown and eventually stabilizing it.</li>
+    </ul>
+
+    <h4>Superposition Equation</h4>
+    <p>The total drawdown at the observation well is the sum of contributions from the real well (distance r) and the image well (distance r<sub>i</sub>):</p>
+    <div class="eq-box">
+      \( s = \frac{Q}{4\pi T}\left[ W(u_r) \pm W(u_i) \right] \)
+    </div>
+    <p>where \( u_r = \frac{r^2 S}{4Tt} \), \( u_i = \frac{r_i^2 S}{4Tt} \), and \( r_i = 2d - r \) for a boundary at distance d from the pumping well. Use <strong>+</strong> for a no-flow barrier and <strong>−</strong> for constant-head recharge.</p>
+
+    <h4>Diagnostic Signature</h4>
+    <ul>
+      <li><strong>No-flow barrier:</strong> The Bourdet derivative doubles from the IARF level at late time.</li>
+      <li><strong>Constant-head recharge:</strong> The derivative drops toward zero as drawdown stabilizes.</li>
+    </ul>
+
+    <h4>How to Apply in AquiPro</h4>
+    <ol>
+      <li>Select <strong>"Boundary — Image Well Theory"</strong> from the method dropdown</li>
+      <li>Use the <strong>Distance to Boundary</strong> slider and select the <strong>Boundary Type</strong></li>
+      <li>Adjust T and S (or use Auto-Fit) to match the observed data</li>
+    </ol>
+
+    <!-- STEP DRAWDOWN -->
+    <h3 id="step-drawdown">7. Step-Drawdown Test (Hantush-Bierschenk)</h3>
+    <span class="tag tag-confined">Well Loss</span>
+    <p>A <strong>step-drawdown test</strong> involves pumping a well at progressively increasing rates (steps), each for a fixed duration (typically 1–2 hours). It separates aquifer losses from well losses to assess well efficiency.</p>
+
+    <h4>Hantush-Bierschenk Equation</h4>
+    <p>The specific drawdown at each step is related to the pumping rate by:</p>
+    <div class="eq-box">
+      \( \frac{s}{Q} = B + C \cdot Q \)
+    </div>
+    <p>where:</p>
+    <ul>
+      <li><strong>B</strong> — Aquifer loss coefficient (linear, laminar flow losses in the aquifer)</li>
+      <li><strong>C</strong> — Well loss coefficient (non-linear, turbulent flow losses near the well screen)</li>
+    </ul>
+    <p>Plotting \( s/Q \) vs. \( Q \) yields a straight line with intercept B and slope C.</p>
+
+    <h4>Well Efficiency</h4>
+    <div class="eq-box">
+      \( \eta = \frac{B \cdot Q}{B \cdot Q + C \cdot Q^2} \times 100\% = \frac{B}{B + C \cdot Q} \times 100\% \)
+    </div>
+    <p>A well efficiency above 70% is generally considered good. Low efficiency suggests well damage, clogged screens, or poor well development.</p>
+
+    <h4>How to Apply in AquiPro</h4>
+    <ol>
+      <li>Select <strong>"Step-Drawdown (Hantush-Bierschenk)"</strong> from the method dropdown</li>
+      <li>Define each step's <strong>duration (min)</strong> and <strong>pumping rate (m³/day)</strong> in the control panel</li>
+      <li>Click <strong>"Analyze Step Test"</strong> — AquiPro extracts drawdown at the end of each step, performs linear regression, and displays B, C, well efficiency, and specific capacity</li>
+    </ol>
+
+    <div class="tip">
+      <strong>💡 Tip:</strong> Ensure your time-drawdown data covers all steps. The analysis uses the drawdown value at the end of each cumulative step duration.
+    </div>
+
+    <!-- DISTANCE-DRAWDOWN -->
+    <h3 id="distance-dd">8. Distance-Drawdown Analysis</h3>
+    <span class="tag tag-confined">Multi-Well</span>
+    <p>When you have <strong>multiple observation wells at different distances</strong> from the pumping well, a distance-drawdown analysis plots theoretical drawdown versus distance at a specified time. This is useful for:</p>
+    <ul>
+      <li>Validating your T and S estimates spatially</li>
+      <li>Predicting drawdown at any distance from the pumping well</li>
+      <li>Designing well protection zones and estimating interference between wells</li>
+    </ul>
+
+    <h4>How to Apply in AquiPro</h4>
+    <ol>
+      <li>Set up multiple observation wells with different radial distances (via coordinates or manual distance entry)</li>
+      <li>Select <strong>"Distance-Drawdown (Multi-Well)"</strong> from the method dropdown</li>
+      <li>Use the <strong>Analysis Time</strong> slider to select the time of interest</li>
+      <li>AquiPro plots the Theis-based drawdown vs. distance curve along with the observed drawdown at each well's distance</li>
+    </ol>
+
     <!-- DERIVATIVE -->
     <h3 id="derivative">The Bourdet Derivative — A Modern Diagnostic</h3>
     <p>Introduced by Bourdet et al. (1989), the derivative method revolutionized pumping test interpretation. Rather than guessing which type curve to use, the derivative <strong>reveals the aquifer type</strong> through its characteristic shape.</p>
@@ -576,6 +730,60 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
         <li>Multiple flow regimes (wellbore storage → radial flow → boundary effects) appear as distinct segments.</li>
       </ul>
     </div>
+
+    <!-- CONFIDENCE INTERVALS -->
+    <h3 id="confidence">Confidence Intervals on Fitted Parameters</h3>
+    <p>After Auto-Fit, AquiPro computes <strong>95% confidence intervals</strong> for each fitted parameter. The method works as follows:</p>
+    <ol>
+      <li>The Levenberg-Marquardt optimizer produces a <strong>Jacobian matrix</strong> J at the optimal solution</li>
+      <li>The <strong>covariance matrix</strong> of the log-transformed parameters is estimated as: \( \text{Cov} = s^2 \left(J^T J\right)^{-1} \) where \( s^2 \) is the residual variance</li>
+      <li>Standard errors are extracted from the diagonal of the covariance matrix</li>
+      <li>The <strong>delta method</strong> converts the log-space standard errors back to the original parameter space: \( \text{SE}(\theta) \approx \theta \cdot \text{SE}(\ln\theta) \)</li>
+      <li>95% bounds are computed as: \( \theta \pm 1.96 \cdot \text{SE}(\theta) \)</li>
+    </ol>
+
+    <div class="note">
+      <strong>📝 Interpretation:</strong> Narrow confidence intervals indicate well-constrained parameters. Wide intervals suggest the data does not strongly constrain that parameter — consider collecting more data or extending the test duration.
+    </div>
+
+    <!-- SUPERPOSITION -->
+    <h3 id="superposition">Principle of Superposition — Variable Pumping Rates</h3>
+    <p>The superposition principle states that in a linear system, the total drawdown from multiple sources equals the sum of individual contributions. AquiPro uses this to model <strong>variable pumping rates</strong>:</p>
+    <div class="eq-box">
+      \( s(r,\,t) = \sum_{i=1}^{n} \frac{\Delta Q_i}{4\pi T}\, W\!\left(\frac{r^2 S}{4\,T\,(t - t_i)}\right) \quad \text{for each } t > t_i \)
+    </div>
+    <p>where Δ Q<sub>i</sub> = Q<sub>i</sub> − Q<sub>i−1</sub> is the rate change at time t<sub>i</sub>. This decomposition works because:</p>
+    <ul>
+      <li>Turning on an additional pump at rate ΔQ at time t<sub>i</sub> is equivalent to adding a new well at distance r that started pumping at t<sub>i</sub></li>
+      <li>The well function W(u) is computed for the elapsed time (t − t<sub>i</sub>) since each rate change</li>
+      <li>This extends naturally to any number of steps, including pump shutoffs (ΔQ < 0)</li>
+    </ul>
+    <p>Superposition works with all analysis methods in AquiPro (Theis, Cooper-Jacob, Hantush, Neuman, and Image Well). Enable the "Variable Pumping Rate Schedule" checkbox in Project Setup to define your rate schedule.</p>
+
+    <!-- PARTIAL PENETRATION & SKIN -->
+    <h3 id="partial-pen">Partial Penetration & Skin Effects</h3>
+    <span class="tag tag-confined">Advanced</span>
+    <p>When the pumping or observation well screen does not extend through the full aquifer thickness, additional head losses occur due to <strong>3D flow convergence</strong> near the well. AquiPro applies the Hantush (1964) steady-state correction:</p>
+    <div class="eq-box">
+      \( s = \frac{Q}{4\pi T}\left[W(u) + f_s + 2\,s_w\right] \)
+    </div>
+    <p>where f<sub>s</sub> is the partial penetration correction and s<sub>w</sub> is the skin factor.</p>
+
+    <h4>Partial Penetration Correction f<sub>s</sub></h4>
+    <p>The correction uses a Fourier-Bessel series that depends on the screen positions of both wells, the radial distance, and the anisotropy ratio:</p>
+    <div class="eq-box">
+      \( f_s = \frac{4b^2}{l_p\,l_o} \sum_{n=1}^{\infty} \frac{1}{n^2\pi^2}\left[\sin\frac{n\pi d_2^{PW}}{b} - \sin\frac{n\pi d_1^{PW}}{b}\right]\left[\sin\frac{n\pi d_2^{OW}}{b} - \sin\frac{n\pi d_1^{OW}}{b}\right] K_0\!\left(\frac{n\pi r}{b}\sqrt{\frac{K_r}{K_z}}\right) \)
+    </div>
+    <p>Key points:</p>
+    <ul>
+      <li>The correction becomes negligible when r/b > 2.5 (far field)</li>
+      <li>It requires K₀ (modified Bessel function) which AquiPro implements via Abramowitz & Stegun polynomial approximations</li>
+      <li>The Kz/Kr ratio significantly affects the magnitude — higher anisotropy (lower Kz/Kr) increases the correction</li>
+      <li>Enter screen intervals as "top-bottom" (e.g., "20-30") in the observation well fields, and numerically for the pumping well</li>
+    </ul>
+
+    <h4>Skin Effect</h4>
+    <p>The skin factor s<sub>w</sub> represents additional resistance at the wellbore due to drilling damage, clogged screens, or gravel pack effects. Positive skin means damage (extra head loss); negative skin means stimulation (e.g., from well development). The skin correction is only relevant when analyzing drawdown measured <em>in the pumping well itself</em> — it does not affect observation well readings.</p>
 
     <!-- PARAMETERS -->
     <h2 id="parameters">📏 Understanding the Key Parameters</h2>
@@ -663,7 +871,9 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <thead><tr><th>Term</th><th>Definition</th></tr></thead>
       <tbody>
         <tr><td><strong>Aquifer</strong></td><td>A geological formation that stores and transmits groundwater in usable quantities</td></tr>
+        <tr><td><strong>Anisotropy Ratio (Kz/Kr)</strong></td><td>The ratio of vertical to horizontal hydraulic conductivity; affects 3D flow and partial penetration</td></tr>
         <tr><td><strong>Aquitard</strong></td><td>A low-permeability layer that restricts but does not completely prevent water flow</td></tr>
+        <tr><td><strong>Confidence Interval</strong></td><td>A range of values within which the true parameter value is expected to lie with a given probability (e.g. 95%)</td></tr>
         <tr><td><strong>Cone of Depression</strong></td><td>The cone-shaped drop in the water table/piezometric surface around a pumping well</td></tr>
         <tr><td><strong>Confined Aquifer</strong></td><td>An aquifer bounded above and below by aquitards, where water is under pressure</td></tr>
         <tr><td><strong>Drawdown (s)</strong></td><td>The decline in water level caused by pumping, measured as the difference from the static level</td></tr>
@@ -671,19 +881,28 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
         <tr><td><strong>Fully Penetrating Well</strong></td><td>A well whose screen extends through the entire saturated thickness of the aquifer</td></tr>
         <tr><td><strong>Haversine Formula</strong></td><td>A spherical geometry formula for computing the distance between two lat/long coordinates</td></tr>
         <tr><td><strong>IARF</strong></td><td>Infinite-Acting Radial Flow — the regime where the cone of depression has not yet reached any boundary</td></tr>
+        <tr><td><strong>Image Well</strong></td><td>A fictitious well placed symmetrically across a boundary to model the boundary's hydraulic effect via superposition</td></tr>
         <tr><td><strong>Leakage Factor (B)</strong></td><td>A parameter characterizing the rate at which water leaks through a confining layer; B = √(Tb'/K')</td></tr>
         <tr><td><strong>Levenberg-Marquardt</strong></td><td>A nonlinear least-squares optimization algorithm that blends gradient descent and Gauss-Newton methods</td></tr>
+        <tr><td><strong>Modified Bessel Function K₀</strong></td><td>A special function arising in radial-flow solutions; decays exponentially for large arguments</td></tr>
         <tr><td><strong>Observation Well</strong></td><td>A well used to monitor water levels during a pumping test (not pumped)</td></tr>
+        <tr><td><strong>Partial Penetration</strong></td><td>When a well screen does not span the full aquifer thickness, causing 3D flow convergence and extra drawdown</td></tr>
         <tr><td><strong>Piezometric Surface</strong></td><td>The imaginary surface to which water would rise in a tightly cased well in a confined aquifer</td></tr>
         <tr><td><strong>Pumping Well</strong></td><td>The well from which water is extracted during a pumping test</td></tr>
         <tr><td><strong>Residual Drawdown</strong></td><td>Drawdown remaining after the pump is shut off, used in recovery analysis</td></tr>
+        <tr><td><strong>Skin Factor</strong></td><td>A dimensionless number representing additional flow resistance (positive) or stimulation (negative) at the wellbore</td></tr>
+        <tr><td><strong>Stehfest Algorithm</strong></td><td>A numerical method for inverting Laplace transforms using weighted function evaluations; used for rigorous Neuman solution</td></tr>
+        <tr><td><strong>Superposition</strong></td><td>The principle that drawdown from multiple sources or rate changes can be summed; enables variable-rate analysis</td></tr>
         <tr><td><strong>RMSE</strong></td><td>Root Mean Square Error — a measure of the average difference between observed and predicted values</td></tr>
         <tr><td><strong>Specific Capacity</strong></td><td>The pumping rate divided by drawdown (Q/s), a rough indicator of well productivity</td></tr>
+        <tr><td><strong>Step-Drawdown Test</strong></td><td>A pumping test where the rate increases in steps to separate aquifer losses (B) from well losses (C)</td></tr>
         <tr><td><strong>Storativity (S)</strong></td><td>The volume of water released from storage per unit area per unit decline in hydraulic head</td></tr>
         <tr><td><strong>Transmissivity (T)</strong></td><td>The rate of flow through a unit width of aquifer for a unit hydraulic gradient; T = K × b</td></tr>
         <tr><td><strong>Type Curve</strong></td><td>A theoretical curve (e.g., Theis curve) plotted on dimensionless axes, used for curve matching</td></tr>
         <tr><td><strong>Unconfined Aquifer</strong></td><td>An aquifer whose upper boundary is the water table (open to atmospheric pressure)</td></tr>
+        <tr><td><strong>Well Efficiency</strong></td><td>The ratio of theoretical aquifer loss to total drawdown, expressed as a percentage; indicates well condition</td></tr>
         <tr><td><strong>Well Function W(u)</strong></td><td>The Theis well function — the exponential integral that describes drawdown in a confined aquifer</td></tr>
+        <tr><td><strong>Well Loss (C)</strong></td><td>The non-linear (turbulent) component of drawdown caused by flow resistance near the well screen</td></tr>
         <tr><td><strong>Wellbore Storage</strong></td><td>The initial release of water from the well casing itself rather than from the aquifer</td></tr>
       </tbody>
     </table>
@@ -696,6 +915,10 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <li>Hantush, M.S. and Jacob, C.E. (1955). Non-steady radial flow in an infinite leaky aquifer. <em>Transactions, American Geophysical Union</em>, 36(1), 95–100.</li>
       <li>Neuman, S.P. (1975). Analysis of pumping test data from anisotropic unconfined aquifers considering delayed gravity response. <em>Water Resources Research</em>, 11(2), 329–342.</li>
       <li>Bourdet, D., Ayoub, J.A. and Pirard, Y.M. (1989). Use of pressure derivative in well test interpretation. <em>SPE Formation Evaluation</em>, 4(2), 293–302.</li>
+      <li>Hantush, M.S. (1964). Hydraulics of wells. In: <em>Advances in Hydroscience</em>, Vol. 1, Academic Press, 281–432.</li>
+      <li>Bierschenk, W.H. (1963). Determining well efficiency by multiple step-drawdown tests. <em>International Association of Scientific Hydrology Publication</em>, 64, 493–507.</li>
+      <li>Stehfest, H. (1970). Algorithm 368: Numerical inversion of Laplace transforms. <em>Communications of the ACM</em>, 13(1), 47–49.</li>
+      <li>Ferris, J.G. et al. (1962). <em>Theory of Aquifer Tests</em>. U.S. Geological Survey Water-Supply Paper 1536-E.</li>
       <li>Kruseman, G.P. and de Ridder, N.A. (1994). <em>Analysis and Evaluation of Pumping Test Data</em>. ILRI Publication 47, 2nd ed.</li>
       <li>Fetter, C.W. (2001). <em>Applied Hydrogeology</em>. 4th ed., Prentice Hall.</li>
     </ul>

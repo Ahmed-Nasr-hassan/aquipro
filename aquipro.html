@@ -243,6 +243,30 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
             <select id="durationUnit" class="select-field" style="width:80px"><option value="min">min</option><option value="hr">hr</option><option value="day">day</option></select>
           </div>
         </div>
+        <div>
+          <label>Skin Factor <span class="tooltip-icon">?<span class="tooltip-text">Dimensionless wellbore skin. Positive = damage, negative = stimulation. Only relevant when analyzing drawdown in the pumping well itself.</span></span></label>
+          <input id="skinFactor" type="number" class="input-field" step="any" placeholder="0" value="0" oninput="updateCorrections();autoSave()">
+        </div>
+        <div>
+          <label>Kz/Kr Ratio <span class="tooltip-icon">?<span class="tooltip-text">Vertical-to-horizontal hydraulic conductivity ratio. Typically 0.1–1.0. Affects Neuman analysis and partial penetration correction.</span></span></label>
+          <input id="kzKrRatio" type="number" class="input-field" step="any" placeholder="1.0" value="1" oninput="updateCorrections();autoSave()">
+        </div>
+      </div>
+      <!-- Variable Rate Schedule (Superposition) -->
+      <div class="mt-3">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="chkVarRate" onchange="toggleRateSchedule()">
+          <span class="text-xs font-semibold">Variable Pumping Rate Schedule (Superposition)</span>
+          <span class="tooltip-icon">?<span class="tooltip-text">Enable if the pumping rate changed during the test. Uses the principle of superposition to sum contributions from each rate step.</span></span>
+        </label>
+        <div id="rateSchedulePanel" class="hidden mt-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <p class="text-[.65rem] text-slate-400 mb-2">Each row defines a constant pumping rate starting at the given time. The first row always starts at t = 0.</p>
+          <div class="text-[.6rem] text-slate-400 font-semibold flex gap-1 mb-1"><span style="width:44%">Start Time (min)</span><span style="width:44%">Rate (m³/day)</span><span style="width:12%"></span></div>
+          <div id="rateRows" class="space-y-1">
+            <div class="flex gap-1 rate-row"><input type="number" class="input-field rate-time" value="0" step="any" style="width:44%" readonly><input type="number" class="input-field rate-q" placeholder="Q₁" step="any" style="width:44%"><span style="width:12%"></span></div>
+          </div>
+          <button onclick="addRateRow()" class="btn btn-outline text-xs mt-1 w-full">+ Add Rate Change</button>
+        </div>
       </div>
     </div>
   </div>
@@ -489,6 +513,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
           <label>Specific Yield Sy: <span id="syVal" class="font-mono text-orange-600 dark:text-orange-400">0.1</span></label>
           <div class="slider-container"><input type="range" id="sliderSy" min="-3" max="-0.3" step="0.01" value="-1" oninput="onSliderChange()"></div>
           <label class="mt-2">σ (= S/Sy): <span id="sigmaVal" class="font-mono">0.001</span></label>
+          <p class="text-[.6rem] text-slate-400 mt-1">Rigorous Neuman solution via Stehfest–Laplace inversion. Uses Kz/Kr and aquifer thickness from Project Setup.</p>
         </div>
         <div id="boundaryControl" class="hidden">
           <label>Distance to Boundary (m): <span id="boundDistVal" class="font-mono text-red-600 dark:text-red-400">500</span></label>
@@ -674,6 +699,8 @@ const APP = {
   results: {},       // {T, S, Sy, RMSE, R2, NSE, MAE, ROI, method}
   allResults: [],    // history of results for comparison
   confidenceIntervals: null,
+  corrections: { skin: 0, KzKr: 1, ppCorr: 0 },
+  rateSchedule: [],
   axisMode: 'loglog',
   obsWellCount: 1,
   measureMode: false,
@@ -723,7 +750,7 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
 
-  if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) APP.leafletMap.invalidateSize(); }, 100);
+  if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) { APP.leafletMap.invalidateSize(); updateMapMarkers(); } }, 100);
   if (name === 'diagnostic') setTimeout(() => updateDiagnosticPlot(), 100);
   if (name === 'analysis') setTimeout(() => updateAnalysisPlot(), 100);
 }
@@ -1094,95 +1121,198 @@ function extractRecovery() {
 // WELL FUNCTION MATHEMATICS
 // =============================================================================
 
-// Theis Well Function W(u) — high-precision series + asymptotic
-// For small u: W(u) = -γ - ln(u) + Σ(-1)^(n+1) * u^n / (n * n!) for n=1..25
-// For large u: continued fraction / exponential integral asymptotic
 const EULER_GAMMA = 0.5772156649015329;
 
 function wellFunctionW(u) {
   if (u <= 0) return 30;
   if (u > 40) return 0;
-
   if (u < 1) {
-    let sum = -EULER_GAMMA - Math.log(u);
-    let term = 1;
-    for (let n = 1; n <= 30; n++) {
-      term *= -u / n;
-      sum -= term / n;
-    }
+    let sum = -EULER_GAMMA - Math.log(u), term = 1;
+    for (let n = 1; n <= 30; n++) { term *= -u / n; sum -= term / n; }
     return Math.max(sum, 0);
   } else {
-    // Asymptotic continued-fraction expansion
     let a = 1, b = u + 1, c = 1/1e-30, d = 1/b, h = d;
     for (let n = 1; n <= 60; n++) {
-      const an = -n * n;
-      b += 2;
-      d = 1 / (an * d + b);
-      c = b + an / c;
-      const del = c * d;
-      h *= del;
+      const an = -n * n; b += 2;
+      d = 1 / (an * d + b); c = b + an / c;
+      const del = c * d; h *= del;
       if (Math.abs(del - 1) < 1e-12) break;
     }
     return Math.max(h * Math.exp(-u), 0);
   }
 }
 
-// Hantush-Jacob W(u, r/B) — leaky well function
-// W(u, β) = ∫[u,∞] (1/y) exp(-y - β²/(4y)) dy
-// Numerical integration via Gauss-Laguerre quadrature
 function hantushW(u, rOverB) {
   if (u <= 0) return 30;
-  const beta2 = rOverB * rOverB;
-  const n = 64;
+  const beta2 = rOverB * rOverB, n = 64;
   let sum = 0;
-  // Adaptive integration using substitution y = u + t
   for (let i = 0; i < n; i++) {
     const t1 = i / n, t2 = (i + 1) / n;
-    // Map [0,1] → [u, large] via y = u / (1-t)
-    for (const xi of [0.2113248654, 0.7886751346]) { // 2-point Gauss
+    for (const xi of [0.2113248654, 0.7886751346]) {
       const t = t1 + (t2 - t1) * xi;
       if (t >= 1) continue;
-      const y = u / (1 - t);
-      const dy = u / ((1 - t) * (1 - t));
-      const integrand = (1 / y) * Math.exp(-y - beta2 / (4 * y));
-      sum += integrand * dy * (t2 - t1);
+      const y = u / (1 - t), dy = u / ((1 - t) * (1 - t));
+      sum += (1 / y) * Math.exp(-y - beta2 / (4 * y)) * dy * (t2 - t1);
     }
   }
   return Math.max(sum, 0);
 }
 
-// Neuman unconfined well function — simplified two-segment approach
-// Uses Theis for early (elastic storage S) and late (specific yield Sy) segments
-// with a transition controlled by the dimensionless parameter σ = S/Sy
-function neumanDrawdown(t_min, Q, T, S, Sy, r) {
-  const t_s = t_min * 60;
-  const sigma = S / Sy;
-  const ts = r * r * Sy / (T / 86400); // characteristic time scale (seconds)
-  const beta = sigma;
-
-  // Early time: governed by elastic storage S
-  const uEarly = r * r * S / (4 * (T / 86400) * t_s);
-  const sEarly = (Q / (4 * Math.PI * (T / 86400))) * wellFunctionW(uEarly);
-
-  // Late time: governed by specific yield Sy
-  const uLate = r * r * Sy / (4 * (T / 86400) * t_s);
-  const sLate = (Q / (4 * Math.PI * (T / 86400))) * wellFunctionW(uLate);
-
-  // Transition via time ratio — smooth sigmoid blend
-  const tRatio = t_s / (ts * 0.1 + 1);
-  const weight = 1 / (1 + Math.exp(-2 * (Math.log10(tRatio) - 1)));
-
-  return sEarly * (1 - weight) + sLate * weight;
+// =============================================================================
+// MODIFIED BESSEL FUNCTIONS — Abramowitz & Stegun polynomial approximations
+// =============================================================================
+function besselI0(x) {
+  const ax = Math.abs(x);
+  if (ax < 3.75) {
+    const y = (x / 3.75) * (x / 3.75);
+    return 1 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492 + y * (0.2659732 + y * (0.0360768 + y * 0.0045813)))));
+  }
+  const y = 3.75 / ax;
+  return (Math.exp(ax) / Math.sqrt(ax)) * (0.39894228 + y * (0.01328592 + y * (0.00225319 + y * (-0.00157565 + y * (0.00916281 + y * (-0.02057706 + y * (0.02635537 + y * (-0.01647633 + y * 0.00392377))))))));
 }
 
-// Compute theoretical drawdown for a given method
-function computeTheoretical(t_min, method, params) {
+function besselK0(x) {
+  if (x <= 0) return 1e30;
+  if (x <= 2) {
+    const y = x * x / 4;
+    return -Math.log(x / 2) * besselI0(x) + (-0.57721566 + y * (0.42278420 + y * (0.23069756 + y * (0.03488590 + y * (0.00262698 + y * (0.00010750 + y * 0.00000740))))));
+  }
+  const y = 2 / x;
+  return (Math.exp(-x) / Math.sqrt(x)) * (1.25331414 + y * (-0.07832358 + y * (0.02189568 + y * (-0.01062446 + y * (0.00587872 + y * (-0.00251540 + y * 0.00053208))))));
+}
+
+// =============================================================================
+// STEHFEST ALGORITHM — Numerical Laplace Transform Inversion (N=12)
+// =============================================================================
+const STEHFEST_V = (function(N) {
+  const Nh = N / 2, V = new Array(N);
+  const fac = n => { let f = 1; for (let i = 2; i <= n; i++) f *= i; return f; };
+  for (let i = 1; i <= N; i++) {
+    let sum = 0;
+    for (let k = Math.floor((i + 1) / 2); k <= Math.min(i, Nh); k++)
+      sum += (Math.pow(k, Nh) * fac(2 * k)) / (fac(Nh - k) * fac(k) * fac(k - 1) * fac(i - k) * fac(2 * k - i));
+    V[i - 1] = Math.pow(-1, i + Nh) * sum;
+  }
+  return V;
+})(12);
+
+function stehfestInvert(F, t) {
+  if (t <= 0) return 0;
+  const ln2t = Math.LN2 / t;
+  let sum = 0;
+  for (let i = 0; i < STEHFEST_V.length; i++) sum += STEHFEST_V[i] * F((i + 1) * ln2t);
+  return sum * ln2t;
+}
+
+// =============================================================================
+// RIGOROUS NEUMAN (1972/1975) UNCONFINED WELL FUNCTION
+// Laplace-space formulation: s̄(p) = Q/(4πTp) · K₀(r·√(p·Φ/T))
+// Effective storage: Φ(p) = S + Sy·α/(p+α) where α = Kz·T/(b²·Sy)
+//   p→∞ (early): Φ→S (elastic only)  |  p→0 (late): Φ→S+Sy (gravity drainage)
+// =============================================================================
+function neumanDrawdownRigorous(t_min, Q, T, S, Sy, r, KzKr, b) {
+  const T_m2s = T / 86400;
+  const t_s = t_min * 60;
+  if (T_m2s <= 0 || t_s <= 0 || r <= 0 || b <= 0) return 0;
+
+  const alpha = (KzKr || 1) * T_m2s / (b * b * Math.max(Sy, 1e-8));
+
+  function sBar(p) {
+    const phi = S + Sy * alpha / (p + alpha);
+    const arg = r * Math.sqrt(p * phi / T_m2s);
+    if (arg > 500 || arg <= 0) return 0;
+    return (Q / (4 * Math.PI * T_m2s * p)) * besselK0(arg);
+  }
+
+  return stehfestInvert(sBar, t_s);
+}
+
+// =============================================================================
+// PARTIAL PENETRATION CORRECTION — Hantush (1964) steady-state series
+// Returns dimensionless f_s additive to W(u): s = Q/(4πT)·[W(u) + f_s]
+// =============================================================================
+function parseScreenInterval(text) {
+  if (!text) return null;
+  const m = text.match(/([\d.]+)\s*[-–—]\s*([\d.]+)/);
+  return m ? { top: parseFloat(m[1]), bot: parseFloat(m[2]) } : null;
+}
+
+function computePartialPenCorrection() {
+  const b = getB_m();
+  const r = getR_m();
+  if (!b || b <= 0 || r <= 0 || r / b > 2.5) return 0;
+
+  const d1pw = parseFloat(document.getElementById('screenTop').value);
+  const d2pw = parseFloat(document.getElementById('screenBot').value);
+  if (isNaN(d1pw) || isNaN(d2pw) || d2pw <= d1pw) return 0;
+  const lpw = d2pw - d1pw;
+  if (lpw >= b * 0.95) return 0;
+
+  const owEntry = document.querySelector('.obs-well-entry');
+  if (!owEntry) return 0;
+  const owParsed = parseScreenInterval(owEntry.querySelector('.obs-screen').value);
+  if (!owParsed) return 0;
+  const d1ow = owParsed.top, d2ow = owParsed.bot;
+  const low = d2ow - d1ow;
+  if (low <= 0 || low >= b * 0.95) return 0;
+
+  const KzKr = APP.corrections.KzKr || 1;
+  const rEff = r / Math.sqrt(KzKr);
+  let fs = 0;
+  for (let n = 1; n <= 100; n++) {
+    const npb = n * Math.PI / b;
+    const sinPW = Math.sin(npb * d2pw) - Math.sin(npb * d1pw);
+    const sinOW = Math.sin(npb * d2ow) - Math.sin(npb * d1ow);
+    const arg = n * Math.PI * rEff / b;
+    if (arg > 50) break;
+    fs += sinPW * sinOW * besselK0(arg) / (n * n * Math.PI * Math.PI);
+  }
+  return (4 * b * b / (lpw * low)) * fs;
+}
+
+// =============================================================================
+// CORRECTIONS CACHE & RATE SCHEDULE
+// =============================================================================
+function updateCorrections() {
+  APP.corrections.skin = parseFloat(document.getElementById('skinFactor').value) || 0;
+  APP.corrections.KzKr = parseFloat(document.getElementById('kzKrRatio').value) || 1;
+  APP.corrections.ppCorr = computePartialPenCorrection();
+}
+
+function toggleRateSchedule() {
+  const on = document.getElementById('chkVarRate').checked;
+  document.getElementById('rateSchedulePanel').classList.toggle('hidden', !on);
+  buildRateSchedule();
+}
+
+function addRateRow() {
+  const container = document.getElementById('rateRows');
+  const div = document.createElement('div');
+  div.className = 'flex gap-1 rate-row';
+  div.innerHTML = '<input type="number" class="input-field rate-time" placeholder="t (min)" step="any" style="width:44%"><input type="number" class="input-field rate-q" placeholder="Q (m³/d)" step="any" style="width:44%"><button onclick="this.parentElement.remove();buildRateSchedule()" class="text-red-400 text-xs" style="width:12%">✕</button>';
+  container.appendChild(div);
+}
+
+function buildRateSchedule() {
+  if (!document.getElementById('chkVarRate').checked) { APP.rateSchedule = []; return; }
+  const rows = document.querySelectorAll('.rate-row');
+  const schedule = [];
+  rows.forEach(r => {
+    const time = parseFloat(r.querySelector('.rate-time').value);
+    const q = parseFloat(r.querySelector('.rate-q').value);
+    if (!isNaN(time) && !isNaN(q) && q > 0) schedule.push({ time, q_m3s: q / 86400 });
+  });
+  APP.rateSchedule = schedule.sort((a, b) => a.time - b.time);
+}
+
+// =============================================================================
+// COMPUTE THEORETICAL — with superposition, skin & partial penetration
+// =============================================================================
+function computeTheoreticalSingle(t_min, method, params, Q) {
   const { T, S, rOverB, Sy } = params;
-  const Q = getQ_m3s();
   const r = getR_m();
   const T_m2s = T / 86400;
   const t_s = t_min * 60;
-
   if (T_m2s <= 0 || t_s <= 0) return 0;
 
   switch (method) {
@@ -1193,24 +1323,55 @@ function computeTheoretical(t_min, method, params) {
     case 'cooper-jacob': {
       const u = (r * r * S) / (4 * T_m2s * t_s);
       if (u > 0.05) return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW(u);
-      return (Q / (4 * Math.PI * T_m2s)) * (Math.log(2.25 * T_m2s * t_s / (r * r * S)));
+      return (Q / (4 * Math.PI * T_m2s)) * Math.log(2.25 * T_m2s * t_s / (r * r * S));
     }
     case 'hantush': {
       const u = (r * r * S) / (4 * T_m2s * t_s);
       return (Q / (4 * Math.PI * T_m2s)) * hantushW(u, rOverB || 0.1);
     }
     case 'neuman': {
-      return neumanDrawdown(t_min, Q, T, S, Sy || 0.1, r);
+      const b = getB_m() || 25;
+      return neumanDrawdownRigorous(t_min, Q, T, S, Sy || 0.1, r, APP.corrections.KzKr, b);
     }
     case 'recovery': {
-      return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW((r*r*S)/(4*T_m2s*t_s));
+      return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW((r * r * S) / (4 * T_m2s * t_s));
     }
     case 'theis-boundary': {
-      return computeImageWell(t_min, params);
+      return computeImageWellSingle(t_min, params, Q);
     }
     default:
       return 0;
   }
+}
+
+function computeTheoretical(t_min, method, params, Q_m3s_override) {
+  const schedule = APP.rateSchedule;
+  const T_m2s = (params.T || 0) / 86400;
+
+  if (Q_m3s_override === undefined && schedule.length > 1) {
+    let sTotal = 0;
+    for (let i = 0; i < schedule.length; i++) {
+      const dt = t_min - schedule[i].time;
+      if (dt <= 0) continue;
+      const dQ = i === 0 ? schedule[i].q_m3s : schedule[i].q_m3s - schedule[i - 1].q_m3s;
+      if (Math.abs(dQ) < 1e-15) continue;
+      sTotal += computeTheoreticalSingle(dt, method, params, dQ);
+    }
+    const Qc = schedule[schedule.length - 1].q_m3s;
+    if (T_m2s > 0 && Qc > 0) {
+      if (APP.corrections.skin) sTotal += (Qc / (2 * Math.PI * T_m2s)) * APP.corrections.skin;
+      if (APP.corrections.ppCorr) sTotal += (Qc / (4 * Math.PI * T_m2s)) * APP.corrections.ppCorr;
+    }
+    return Math.max(sTotal, 0);
+  }
+
+  const Q = Q_m3s_override !== undefined ? Q_m3s_override : getQ_m3s();
+  let s = computeTheoreticalSingle(t_min, method, params, Q);
+  if (Q_m3s_override === undefined && T_m2s > 0 && Q > 0) {
+    if (APP.corrections.skin) s += (Q / (2 * Math.PI * T_m2s)) * APP.corrections.skin;
+    if (APP.corrections.ppCorr) s += (Q / (4 * Math.PI * T_m2s)) * APP.corrections.ppCorr;
+  }
+  return Math.max(s, 0);
 }
 
 // =============================================================================
@@ -1453,9 +1614,8 @@ function parseQuickEntry() {
 // Superposition: drawdown = real well + image well
 // Barrier: image has same sign (adds drawdown)
 // Recharge: image has opposite sign (reduces drawdown)
-function computeImageWell(t_min, params) {
+function computeImageWellSingle(t_min, params, Q) {
   const { T, S } = params;
-  const Q = getQ_m3s();
   const r = getR_m();
   const T_m2s = T / 86400;
   const t_s = t_min * 60;
@@ -1723,6 +1883,8 @@ function onSliderChange() {
     document.getElementById('distTimeVal').textContent = dt.toFixed(0);
   }
 
+  updateCorrections();
+  buildRateSchedule();
   const method = document.getElementById('analysisMethod').value;
   if (method === 'distance-dd') computeDistanceDrawdown();
   else { updateAnalysisPlot(); updateResults(); }
@@ -1744,7 +1906,7 @@ function getCurrentParams() {
   const rOverB = parseFloat(document.getElementById('sliderRB').value);
   const Sy = Math.pow(10, parseFloat(document.getElementById('sliderSy').value));
   const boundDist = Math.pow(10, parseFloat(document.getElementById('sliderBoundDist').value));
-  return { T, S, rOverB, Sy, boundDist };
+  return { T, S, rOverB, Sy, boundDist, skin: APP.corrections.skin, KzKr: APP.corrections.KzKr };
 }
 
 function autoFit() {
@@ -1755,6 +1917,9 @@ function autoFit() {
   const btn = document.getElementById('autoFitBtn');
   btn.innerHTML = '<span class="spinner"></span> Fitting...';
   btn.disabled = true;
+
+  updateCorrections();
+  buildRateSchedule();
 
   setTimeout(() => {
     try {
@@ -2123,6 +2288,8 @@ function initMap() {
     }
     onCoordsChange();
   });
+
+  updateMapMarkers();
 }
 
 function updateMapMarkers() {
@@ -2509,6 +2676,13 @@ function gatherState() {
     durationUnit: document.getElementById('durationUnit').value,
     swlUnit: document.getElementById('swlUnit').value,
     casingUnit: document.getElementById('casingUnit').value,
+    skinFactor: document.getElementById('skinFactor').value,
+    kzKrRatio: document.getElementById('kzKrRatio').value,
+    varRateEnabled: document.getElementById('chkVarRate').checked,
+    rateScheduleRows: Array.from(document.querySelectorAll('.rate-row')).map(r => ({
+      time: r.querySelector('.rate-time').value,
+      q: r.querySelector('.rate-q').value,
+    })),
     pwLat: document.getElementById('pwLat').value,
     pwLng: document.getElementById('pwLng').value,
     pwID: document.getElementById('pwID').value,
@@ -2537,7 +2711,7 @@ function restoreState(state) {
   if (!state) return;
   const fields = ['projectName','projLocation','projDate','projAnalyst','projNotes','pumpRate','pumpRateUnit',
     'aquiferThickness','thicknessUnit','staticWL','screenTop','screenBot','casingDia','aquitardThick','aquitardK',
-    'pumpDuration','durationUnit','swlUnit','casingUnit','pwLat','pwLng','pwID','pwDepth'];
+    'pumpDuration','durationUnit','swlUnit','casingUnit','skinFactor','kzKrRatio','pwLat','pwLng','pwID','pwDepth'];
   fields.forEach(f => { if (state[f] !== undefined && document.getElementById(f)) document.getElementById(f).value = state[f]; });
 
   document.getElementById('projectNameToolbar').value = state.projectName || 'Untitled Project';
@@ -2576,6 +2750,26 @@ function restoreState(state) {
     }
   }
 
+  if (state.varRateEnabled) {
+    document.getElementById('chkVarRate').checked = true;
+    document.getElementById('rateSchedulePanel').classList.remove('hidden');
+  }
+  if (state.rateScheduleRows && state.rateScheduleRows.length > 1) {
+    for (let i = 1; i < state.rateScheduleRows.length; i++) addRateRow();
+    const rows = document.querySelectorAll('.rate-row');
+    state.rateScheduleRows.forEach((rs, i) => {
+      if (rows[i]) {
+        rows[i].querySelector('.rate-time').value = rs.time || '';
+        rows[i].querySelector('.rate-q').value = rs.q || '';
+      }
+    });
+  } else if (state.rateScheduleRows && state.rateScheduleRows.length === 1) {
+    const row = document.querySelector('.rate-row');
+    if (row) row.querySelector('.rate-q').value = state.rateScheduleRows[0].q || '';
+  }
+
+  updateCorrections();
+  buildRateSchedule();
   onSliderChange();
   onCoordsChange();
 }
@@ -2670,7 +2864,15 @@ function clearAllData() {
   document.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach(el => el.value = '');
   document.getElementById('projectName').value = 'Untitled Project';
   document.getElementById('projectNameToolbar').value = 'Untitled Project';
+  document.getElementById('skinFactor').value = '0';
+  document.getElementById('kzKrRatio').value = '1';
+  document.getElementById('chkVarRate').checked = false;
+  document.getElementById('rateSchedulePanel').classList.add('hidden');
+  document.getElementById('rateRows').innerHTML = '<div class="flex gap-1 rate-row"><input type="number" class="input-field rate-time" value="0" step="any" style="width:44%" readonly><input type="number" class="input-field rate-q" placeholder="Q₁" step="any" style="width:44%"><span style="width:12%"></span></div>';
   APP.data = []; APP.processed = []; APP.results = {}; APP.allResults = [];
+  APP.confidenceIntervals = null;
+  APP.corrections = { skin: 0, KzKr: 1, ppCorr: 0 };
+  APP.rateSchedule = [];
   clearDataTable();
   toast('All data cleared', 'info');
 }
@@ -2769,6 +2971,7 @@ document.addEventListener('DOMContentLoaded', function() {
   } catch(e) { /* no saved state */ }
 
   // Initial slider display
+  updateCorrections();
   onSliderChange();
   onMethodChange();
   updateMapVisibility();
