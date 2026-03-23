@@ -671,11 +671,11 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 </main>
 
 <!-- SHORTCUTS MODAL -->
-<div id="shortcutsModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 backdrop-blur-sm" onclick="if(event.target===this)this.classList.add('hidden')">
+<div id="shortcutsModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 backdrop-blur-sm" onclick="if(event.target===this)closeShortcuts()">
   <div class="card max-w-md w-full mx-4">
     <div class="flex items-center justify-between mb-3">
       <div class="section-title mb-0">⌨️ Keyboard Shortcuts</div>
-      <button onclick="document.getElementById('shortcutsModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+      <button onclick="closeShortcuts()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
     </div>
     <div class="space-y-1 text-xs">
       <div class="flex justify-between p-1.5 rounded bg-slate-50 dark:bg-slate-800"><span>Save Project</span><kbd class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[.65rem]">Ctrl+S</kbd></div>
@@ -2881,8 +2881,14 @@ function clearAllData() {
 // KEYBOARD SHORTCUTS
 // =============================================================================
 function showShortcuts() {
-  document.getElementById('shortcutsModal').classList.remove('hidden');
-  document.getElementById('shortcutsModal').style.display = 'flex';
+  const m = document.getElementById('shortcutsModal');
+  m.classList.remove('hidden');
+  m.style.display = 'flex';
+}
+function closeShortcuts() {
+  const m = document.getElementById('shortcutsModal');
+  m.classList.add('hidden');
+  m.style.display = '';
 }
 
 document.addEventListener('keydown', function(e) {
@@ -2893,6 +2899,7 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
+  if (e.key === 'Escape') { closeShortcuts(); return; }
   if (e.key === '?') { e.preventDefault(); showShortcuts(); }
   if (e.key >= '1' && e.key <= '6') {
     const tabs = ['setup','data','diagnostic','analysis','map','report'];
