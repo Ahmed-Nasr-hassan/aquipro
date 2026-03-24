@@ -319,6 +319,10 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       Load Example Dataset
     </button>
+    <button onclick="loadAdvancedExampleData()" class="btn btn-outline" title="Multi-well · Variable rate · Neuman unconfined · Recovery">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+      Advanced Example
+    </button>
     <button onclick="clearAllData()" class="btn btn-outline text-xs">Clear All</button>
   </div>
 </div>
@@ -3269,6 +3273,170 @@ function loadExampleData() {
   onSliderChange();
 
   toast('Example dataset loaded! Navigate tabs to explore.', 'success');
+}
+
+function loadAdvancedExampleData() {
+  // --- Project metadata ---
+  document.getElementById('projectName').value = 'Riverdale Valley — Advanced Test';
+  document.getElementById('projectNameToolbar').value = 'Riverdale Valley — Advanced Test';
+  document.getElementById('projLocation').value = 'Riverdale Valley Well Field, Sector B';
+  document.getElementById('projDate').value = '2026-01-15';
+  document.getElementById('projAnalyst').value = 'A. Nkosi';
+  document.getElementById('projNotes').value =
+    'Variable-rate step test on unconfined alluvial aquifer. 3 pumping steps (Q\u2081=800, Q\u2082=1200, Q\u2083=1000 m\u00b3/d) + recovery. ' +
+    'Two observation wells. Neuman delayed-yield signature clearly visible in OW-Near.';
+  document.getElementById('pumpRate').value = '1000';
+  document.getElementById('pumpRateUnit').value = 'm3/day';
+  document.getElementById('aquiferThickness').value = '18';
+  document.getElementById('thicknessUnit').value = 'm';
+  document.getElementById('staticWL').value = '8.2';
+  document.getElementById('screenTop').value = '4';
+  document.getElementById('screenBot').value = '22';
+  document.getElementById('casingDia').value = '200';
+  document.getElementById('casingUnit').value = 'mm';
+  document.getElementById('pumpDuration').value = '2880';
+  document.getElementById('durationUnit').value = 'min';
+
+  // --- Well coordinates & IDs ---
+  document.getElementById('pwLat').value = '48.4521';
+  document.getElementById('pwLng').value = '2.1876';
+  document.getElementById('pwID').value = 'PW-RVB';
+
+  // Ensure we have at least 2 observation well rows
+  while (document.querySelectorAll('.obs-well-entry').length < 2) addObsWell();
+  const obsEntries = document.querySelectorAll('.obs-well-entry');
+  // OW-Near: ~20 m from PW
+  obsEntries[0].querySelector('.obs-id').value  = 'OW-Near';
+  obsEntries[0].querySelector('.obs-lat').value = '48.4519';
+  obsEntries[0].querySelector('.obs-lng').value = '2.1878';
+  // OW-Far: ~75 m from PW
+  obsEntries[1].querySelector('.obs-id').value  = 'OW-Far';
+  obsEntries[1].querySelector('.obs-lat').value = '48.4514';
+  obsEntries[1].querySelector('.obs-lng').value = '2.1885';
+
+  // -----------------------------------------------------------------------
+  // PW data — includes embedded Q values to drive the variable-rate schedule
+  //   Step 1: Q=800 m³/d  (t = 0–480 min)
+  //   Step 2: Q=1200 m³/d (t = 480–1440 min)
+  //   Step 3: Q=1000 m³/d (t = 1440–2880 min)
+  // Early-time unit-slope from wellbore storage visible (t < ~3 min)
+  // -----------------------------------------------------------------------
+  const Q1=800/86400, Q2=1200/86400, Q3=1000/86400;
+  const pwData = [
+    // Wellbore-storage dominated (unit slope on log-log)
+    {t:0.1,s:0.46,q:Q1},{t:0.2,s:0.73,q:Q1},{t:0.5,s:1.22,q:Q1},
+    {t:1,  s:1.57,q:Q1},{t:2,  s:1.76,q:Q1},{t:3,  s:1.86,q:Q1},
+    // Transition to Theis slope
+    {t:5,  s:1.93,q:Q1},{t:8,  s:2.00,q:Q1},{t:10, s:2.05,q:Q1},
+    {t:15, s:2.13,q:Q1},{t:20, s:2.20,q:Q1},{t:30, s:2.29,q:Q1},
+    {t:40, s:2.35,q:Q1},{t:60, s:2.45,q:Q1},{t:80, s:2.51,q:Q1},
+    {t:120,s:2.59,q:Q1},{t:180,s:2.67,q:Q1},{t:240,s:2.73,q:Q1},
+    {t:360,s:2.81,q:Q1},{t:480,s:2.88,q:Q1},
+    // Step 2 — Q jumps to 1200 m³/d
+    {t:490,s:3.03,q:Q2},{t:500,s:3.15,q:Q2},{t:520,s:3.25,q:Q2},
+    {t:540,s:3.32,q:Q2},{t:600,s:3.44,q:Q2},{t:720,s:3.58,q:Q2},
+    {t:900,s:3.71,q:Q2},{t:1080,s:3.82,q:Q2},{t:1200,s:3.89,q:Q2},
+    {t:1440,s:3.99,q:Q2},
+    // Step 3 — Q drops to 1000 m³/d; slight partial recovery then slow rise
+    {t:1480,s:3.84,q:Q3},{t:1560,s:3.80,q:Q3},{t:1680,s:3.79,q:Q3},
+    {t:1800,s:3.79,q:Q3},{t:2160,s:3.84,q:Q3},{t:2520,s:3.89,q:Q3},
+    {t:2880,s:3.92,q:Q3}
+  ];
+
+  // -----------------------------------------------------------------------
+  // OW-Near (r ≈ 20 m) — classic Neuman delayed-yield shape
+  //   Early: confined slope; Plateau: t ≈ 50–150 min; Late: Sy slope
+  // -----------------------------------------------------------------------
+  const owNearData = [
+    // Early confined response
+    {t:1,  s:0.18},{t:2,  s:0.30},{t:3,  s:0.40},{t:5,  s:0.58},
+    {t:7,  s:0.72},{t:10, s:0.84},{t:15, s:0.98},{t:20, s:1.08},
+    {t:30, s:1.20},{t:40, s:1.28},
+    // Delayed-yield plateau (gravity drainage slows drawdown increase)
+    {t:50, s:1.34},{t:60, s:1.38},{t:80, s:1.43},{t:100,s:1.47},
+    {t:120,s:1.51},{t:150,s:1.56},
+    // Late-time Sy slope resumes
+    {t:200,s:1.64},{t:260,s:1.73},{t:320,s:1.80},{t:400,s:1.88},{t:480,s:1.95},
+    // Step 2 — steeper rise
+    {t:490,s:2.10},{t:510,s:2.23},{t:540,s:2.34},{t:600,s:2.49},
+    {t:720,s:2.63},{t:900,s:2.78},{t:1080,s:2.90},{t:1200,s:2.97},{t:1440,s:3.08},
+    // Step 3 — rate drop causes brief partial recovery, then slow climb
+    {t:1500,s:2.97},{t:1560,s:2.93},{t:1680,s:2.92},{t:1800,s:2.93},
+    {t:2160,s:2.99},{t:2520,s:3.05},{t:2880,s:3.10}
+  ];
+
+  // -----------------------------------------------------------------------
+  // OW-Far (r ≈ 75 m) — delayed arrival, smooth response
+  // -----------------------------------------------------------------------
+  const owFarData = [
+    // No measurable drawdown until t ≈ 10 min
+    {t:10, s:0.05},{t:15, s:0.12},{t:20, s:0.22},{t:30, s:0.38},{t:40, s:0.50},
+    {t:60, s:0.64},{t:80, s:0.72},{t:100,s:0.79},{t:120,s:0.84},{t:150,s:0.90},
+    {t:200,s:0.97},{t:260,s:1.04},{t:320,s:1.10},{t:400,s:1.17},{t:480,s:1.23},
+    // Step 2
+    {t:500,s:1.36},{t:540,s:1.46},{t:600,s:1.56},{t:720,s:1.70},
+    {t:900,s:1.83},{t:1080,s:1.93},{t:1200,s:2.00},{t:1440,s:2.09},
+    // Step 3
+    {t:1500,s:2.01},{t:1560,s:1.97},{t:1680,s:1.96},{t:1800,s:1.97},
+    {t:2160,s:2.02},{t:2520,s:2.07},{t:2880,s:2.11}
+  ];
+
+  // -----------------------------------------------------------------------
+  // Recovery data — Horner residual drawdown for OW-Near
+  //   tp = 2880 min; Q_eff = Q₃ = 1000 m³/d
+  //   s' = Q/(4πT) · ln(tOverTp)  →  tOverTp = (tp+t_rec)/t_rec
+  // -----------------------------------------------------------------------
+  APP.recovery = [
+    {tOverTp:2881,sp:3.08},{tOverTp:1441,sp:2.84},{tOverTp:721, sp:2.61},
+    {tOverTp:481, sp:2.48},{tOverTp:289, sp:2.32},{tOverTp:145, sp:2.12},
+    {tOverTp:97,  sp:1.98},{tOverTp:61,  sp:1.82},{tOverTp:37,  sp:1.67},
+    {tOverTp:25,  sp:1.54},{tOverTp:19,  sp:1.45},{tOverTp:13,  sp:1.31},
+    {tOverTp:9,   sp:1.15},{tOverTp:7,   sp:1.04},{tOverTp:5,   sp:0.89},
+    {tOverTp:4,   sp:0.76},{tOverTp:3,   sp:0.61},{tOverTp:2.5, sp:0.50},
+    {tOverTp:2,   sp:0.37},{tOverTp:1.5, sp:0.21}
+  ].sort((a, b) => b.tOverTp - a.tOverTp);
+
+  // -----------------------------------------------------------------------
+  // Wire everything into APP state
+  // -----------------------------------------------------------------------
+  APP.wellData = {
+    'PW-RVB':   pwData,
+    'OW-Near':  owNearData,
+    'OW-Far':   owFarData
+  };
+
+  // Active analysis well = OW-Near (clearest Neuman signal)
+  APP.activeWell = 'OW-Near';
+  APP.data = [...owNearData];
+
+  // Sync well selector first so it knows all three wells
+  syncWellSelector();
+
+  // Build the 3-step rate schedule from PW data
+  const savedActive = APP.activeWell;
+  APP.activeWell = 'PW-RVB';
+  APP.data = [...pwData];
+  buildRateScheduleFromData();
+  APP.activeWell = savedActive;
+  APP.data = [...owNearData];
+
+  // Populate data table with OW-Near
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  onCoordsChange();
+
+  // Preset sliders: T≈200 m²/d, S≈3×10⁻⁴, Sy≈0.12
+  document.getElementById('sliderT').value = Math.log10(200);
+  document.getElementById('sliderS').value = Math.log10(3e-4);
+  document.getElementById('sliderSy').value = Math.log10(0.12);
+
+  // Switch analysis method to Neuman
+  document.getElementById('analysisMethod').value = 'neuman';
+  onMethodChange();
+  onSliderChange();
+
+  toast('Advanced example loaded — multi-well, variable rate, Neuman unconfined, recovery data ready.', 'success');
 }
 
 function clearAllData() {
