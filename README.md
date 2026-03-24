@@ -127,7 +127,7 @@ Download `aquipro.html` directly and double-click to open.
 
 ## Quick Start
 
-1. Click **"Load Example Dataset"** on the Project Setup tab
+1. Click **"Confined Example"** on the Project Setup tab
 2. Go to **Diagnostic Plot** → click **Refresh** → see the automatic aquifer diagnosis
 3. Go to **Analysis** → click **Auto-Fit** → get T, S, R² in seconds
 4. Go to **Map & ROI** → click **Update ROI** → see the radius of influence on the map

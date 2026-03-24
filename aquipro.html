@@ -44,6 +44,7 @@ body{font-family:'Inter',system-ui,sans-serif;transition:background .3s,color .3
 .btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff}.btn-success:hover{box-shadow:0 4px 12px rgba(16,185,129,.4)}
 .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
 .btn-purple{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff}.btn-purple:hover{box-shadow:0 4px 12px rgba(139,92,246,.4);transform:translateY(-1px)}
+.btn-teal{background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff}.btn-teal:hover{box-shadow:0 4px 12px rgba(13,148,136,.4);transform:translateY(-1px)}
 .btn-outline{border:1px solid #cbd5e1;background:transparent;color:#475569}.btn-outline:hover{border-color:#3b82f6;color:#3b82f6}
 .dark .btn-outline{border-color:#475569;color:#94a3b8}.dark .btn-outline:hover{border-color:#60a5fa;color:#60a5fa}
 .select-field{padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.8125rem;background:transparent;cursor:pointer}
@@ -337,7 +338,11 @@ html{-webkit-text-size-adjust:100%}
   <div class="flex gap-3 flex-wrap">
     <button onclick="loadExampleData()" class="btn btn-success">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      Load Example Dataset
+      Confined Example
+    </button>
+    <button onclick="loadUnconfinedExampleData()" class="btn btn-teal" title="Single-well · Constant rate · Neuman delayed yield · Clean S-curve">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Unconfined Example
     </button>
     <button onclick="loadAdvancedExampleData()" class="btn btn-purple" title="Multi-well · Variable rate · Neuman unconfined · Recovery">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
@@ -3642,6 +3647,79 @@ function loadExampleData() {
   onSliderChange();
 
   toast('Example dataset loaded! Navigate tabs to explore.', 'success');
+}
+
+function loadUnconfinedExampleData() {
+  _resetForExample();
+  document.getElementById('projectName').value = 'Millbrook Unconfined Aquifer Test';
+  document.getElementById('projectNameToolbar').value = 'Millbrook Unconfined Aquifer Test';
+  document.getElementById('projLocation').value = 'Millbrook Valley, Monitoring Site B';
+  document.getElementById('projDate').value = '2026-03-24';
+  document.getElementById('projAnalyst').value = 'A. Patel';
+  document.getElementById('projNotes').value = 'Constant-rate test on unconfined sand-gravel aquifer. Classic Neuman delayed-yield S-curve response.';
+  document.getElementById('pumpRate').value = '800';
+  document.getElementById('pumpRateUnit').value = 'm3/day';
+  document.getElementById('aquiferThickness').value = '18';
+  document.getElementById('thicknessUnit').value = 'm';
+  document.getElementById('staticWL').value = '4.2';
+  document.getElementById('screenTop').value = '5';
+  document.getElementById('screenBot').value = '23';
+  document.getElementById('casingDia').value = '150';
+  document.getElementById('casingUnit').value = 'mm';
+  document.getElementById('pumpDuration').value = '2880';
+  document.getElementById('durationUnit').value = 'min';
+
+  document.getElementById('pwLat').value = '51.4850';
+  document.getElementById('pwLng').value = '-0.9320';
+  document.getElementById('pwID').value = 'PW-Millbrook';
+
+  const entry = document.querySelector('.obs-well-entry');
+  if (entry) {
+    entry.querySelector('.obs-id').value = 'OW-25m';
+    entry.querySelector('.obs-lat').value = '51.4852';
+    entry.querySelector('.obs-lng').value = '-0.9317';
+  }
+
+  // Neuman S-curve: T≈120 m²/d, S≈1e-3 (elastic), Sy≈0.15 (specific yield), r=25 m
+  // Phase 1 (t<20 min):  early confined rise — steep, derivative ≈ flat
+  // Phase 2 (t 20–300):  delayed-yield plateau — derivative dips clearly
+  // Phase 3 (t>300 min): late unconfined slope — derivative recovers to Theis-like
+  APP.data = [
+    {t:0.5,s:0.010},{t:1,s:0.022},{t:1.5,s:0.032},{t:2,s:0.041},{t:3,s:0.058},
+    {t:4,s:0.073},{t:5,s:0.086},{t:6,s:0.098},{t:8,s:0.119},{t:10,s:0.137},
+    {t:12,s:0.153},{t:15,s:0.174},{t:18,s:0.193},{t:20,s:0.203},
+    // mid plateau — gravity drainage kicks in, drawdown flattens
+    {t:25,s:0.212},{t:30,s:0.218},{t:40,s:0.226},{t:50,s:0.232},
+    {t:60,s:0.237},{t:80,s:0.244},{t:100,s:0.250},{t:120,s:0.255},
+    {t:150,s:0.261},{t:180,s:0.266},{t:220,s:0.272},{t:260,s:0.277},
+    {t:300,s:0.282},
+    // late Theis — Sy dominates, drawdown resumes Cooper-Jacob slope
+    {t:360,s:0.301},{t:420,s:0.318},{t:500,s:0.338},{t:600,s:0.361},
+    {t:720,s:0.385},{t:860,s:0.410},{t:1000,s:0.432},{t:1200,s:0.460},
+    {t:1440,s:0.490},{t:1800,s:0.528},{t:2160,s:0.560},{t:2520,s:0.588},
+    {t:2880,s:0.613}
+  ];
+
+  APP.activeWell = 'OW-25m';
+  APP.wellData = { 'OW-25m': [...APP.data] };
+  syncWellSelector();
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  onCoordsChange();
+
+  // Neuman sliders: T≈120, S≈1e-3, Sy≈0.15
+  document.getElementById('sliderT').value = Math.log10(120);
+  document.getElementById('sliderS').value = Math.log10(1e-3);
+  const sliderSy = document.getElementById('sliderSy');
+  if (sliderSy) sliderSy.value = Math.log10(0.15);
+
+  // Switch to Neuman method
+  const methodSel = document.getElementById('analysisMethod');
+  if (methodSel) { methodSel.value = 'neuman'; onMethodChange(); }
+
+  onSliderChange();
+  toast('Unconfined example loaded — look for the delayed-yield S-curve in diagnostics!', 'success');
 }
 
 function loadAdvancedExampleData() {
