@@ -2,7 +2,7 @@
 <html lang="en" class="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AquiPro — Documentation & Groundwater Analysis Guide</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -121,6 +121,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <option value="#tab-analysis">Tab: Analysis</option>
     <option value="#tab-map">Tab: Map & ROI</option>
     <option value="#tab-report">Tab: Report</option>
+    <option value="#mobile-layout">Phones & Tablets</option>
     <option value="#theory">Theory & Methods</option>
     <option value="#theis">Theis Method</option>
     <option value="#cooper-jacob">Cooper-Jacob Method</option>
@@ -159,6 +160,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <a href="#tab-analysis">Analysis</a>
       <a href="#tab-map">Map & ROI</a>
       <a href="#tab-report">Report</a>
+      <a href="#mobile-layout">Phones & Tablets</a>
 
       <div class="text-[.65rem] font-bold uppercase text-slate-400 tracking-wider mb-2 mt-4 px-3">Theory & Methods</div>
       <a href="#theory">Overview</a>
@@ -202,7 +204,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <div class="step-num">2</div>
       <div class="step-content">
         <strong>Go to Diagnostic Plot</strong>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mb-0">Click the <em>Diagnostic Plot</em> tab and hit <strong>Refresh</strong>. AquiPro will compute the Bourdet derivative, plot it, and automatically suggest which aquifer type and analysis method to use.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-0">Open the <em>Diagnostic Plot</em> tab and click <strong>Refresh Diagnosis</strong>. AquiPro computes the smoothed Bourdet derivative, plots drawdown and derivative together, and runs <strong>Aquifer Diagnosis</strong> (confined, unconfined, leaky, barrier, or inconclusive). Use the <strong>L</strong> slider to change smoothing — the plot updates live, but you must click <strong>Refresh Diagnosis</strong> again to update the written diagnosis. If more than one well has data, pick the well under <strong>Diagnosing:</strong> first.</p>
       </div>
     </div>
     <div class="step">
@@ -336,7 +338,10 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <p>Paste raw comma or tab-separated data into the text area and click "Parse Data".</p>
 
     <h3>⚡ Quick Entry</h3>
-    <p>The simplest method — two side-by-side text areas where you type (or paste) one value per line: <strong>time values</strong> on the left and <strong>drawdown values</strong> on the right. Click <strong>"Load Data"</strong> and AquiPro validates that both columns have the same number of entries before importing. Ideal for quickly entering small datasets from field notes.</p>
+    <p>The simplest method — two text areas where you type (or paste) one value per line: <strong>time values</strong> on the left and <strong>drawdown values</strong> on the right. On narrow screens they stack vertically for easier editing. Click <strong>"Load Data"</strong> and AquiPro validates that both columns have the same number of entries before importing. Ideal for quickly entering small datasets from field notes.</p>
+
+    <h3>Per-well data</h3>
+    <p>When multiple wells are defined in Project Setup, use <strong>Entering data for:</strong> to choose which well you are editing. Each well keeps its own time–drawdown series. The same well list drives optional selectors on the <em>Diagnostic Plot</em> and <em>Analysis</em> tabs so you can diagnose or fit a specific observation well without mixing datasets.</p>
 
     <h3>Data Preprocessing</h3>
     <p>The right panel offers four preprocessing tools:</p>
@@ -368,6 +373,17 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
 
     <p>The <strong>L parameter</strong> (smoothing factor) controls how far apart the neighboring points are when computing the derivative. Increase L if your derivative is too noisy; decrease it to capture fine detail.</p>
 
+    <h3>Automatic Aquifer Diagnosis</h3>
+    <p>Beside the plot, <strong>Aquifer Diagnosis</strong> summarizes what the derivative shape suggests. The classifier is a <strong>heuristic helper</strong>, not a substitute for geology and professional judgment.</p>
+    <ul>
+      <li><strong>Time-based windows</strong> — Early, middle, and late behavior are compared using <strong>equal thirds of log₁₀(time)</strong> across your samples (with a fallback if times are too clustered). This aligns the rules with hydraulic time rather than raw row index.</li>
+      <li><strong>Spike suppression</strong> — Very large derivative spikes (e.g. from rate changes or glitches) are down-weighted before classification so they do not dominate the result.</li>
+      <li><strong>Types</strong> — <strong>Confined</strong> (flat derivative), <strong>Unconfined</strong> (mid-time dip vs. early/late), <strong>Leaky</strong> (derivative lower at late log-time), <strong>Barrier</strong> (derivative higher at late log-time, including stiffening responses). <strong>Unknown</strong> appears when no clear pattern matches; confidence is lower and you choose the method manually.</li>
+      <li><strong>Wellbore storage</strong> — If early points show a unit-slope segment on log–log, a note is appended; WBS can coexist with other signatures.</li>
+      <li><strong>Recommended method</strong> — When a type is recognized, a button jumps to the <em>Analysis</em> tab with an appropriate method pre-selected. For <strong>unknown</strong>, the app explains that there is no automatic pick.</li>
+    </ul>
+    <p>The tab also lists <strong>reference signatures</strong> (confined, unconfined, leaky, barrier, WBS) for side-by-side comparison with your curve.</p>
+
     <h3>Reading the Diagnostic Plot</h3>
     <p>The shape of the derivative curve reveals the aquifer type:</p>
 
@@ -393,7 +409,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <div class="method-card">
         <span class="tag" style="background:#fee2e2;color:#dc2626">Barrier</span>
         <h4>Rising Derivative</h4>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Derivative continuously increases (doubles the IARF level). An <strong>impermeable boundary</strong> causes extra drawdown as the cone hits the barrier.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Derivative rises at <strong>late log-time</strong> (e.g. toward doubling the IARF level). Typical of a <strong>no-flow barrier</strong> or similar stiffening response as boundaries influence the cone.</p>
         <p class="text-sm"><strong>Use:</strong> <a href="#image-well">Image Well Theory</a> (Boundary — Image Well in AquiPro)</p>
       </div>
     </div>
@@ -407,6 +423,10 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
 
     <h3>Choosing a Method</h3>
     <p>Select a method from the dropdown based on your diagnostic plot results or aquifer knowledge. AquiPro implements eight methods (see the <a href="#theory">Theory section</a> below for full equations), including three specialized analyses: step-drawdown, boundary (image well), and distance-drawdown.</p>
+    <p>When several wells contain data, use <strong>Analysing:</strong> to select which series is fitted (observation wells are preferred by default). The plot and Auto-Fit always use that well’s active dataset.</p>
+
+    <h3>Derivative on the analysis chart</h3>
+    <p>For standard time–drawdown methods (not step-drawdown, distance-drawdown, or recovery), the main fit chart can show a <strong>derivative trace</strong> using the same <strong>L</strong> smoothing value as on the Diagnostic Plot tab. That lets you compare the model curve with the Bourdet derivative without switching tabs.</p>
 
     <h3>Manual Curve Matching</h3>
     <p>Use the <strong>T</strong> and <strong>S</strong> sliders to manually adjust the theoretical curve until it overlays the observed data. The sliders are logarithmic — small movements produce large parameter changes. Watch the RMSE and R² values update in real time.</p>
@@ -448,7 +468,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     </table>
 
     <h3>Sensitivity Analysis</h3>
-    <p>Click <strong>"Sensitivity Analysis"</strong> to see how the predicted drawdown changes as T varies by ±10%, ±25%, and ±50%. This helps assess uncertainty in your parameter estimates.</p>
+    <p>After a successful fit, click <strong>"Sensitivity Analysis"</strong> to open a chart that varies fitted parameters by <strong>±10%, ±25%, and ±50%</strong> (T and S always; <strong>Sy</strong> for Neuman, <strong>r/B</strong> for Hantush when applicable). A shaded envelope shows the spread; pill tabs switch the active parameter. On narrow screens the legend moves below the plot so traces stay readable.</p>
 
     <h3>Drawdown Prediction</h3>
     <p>Enter a future time value to predict the drawdown at that time using the fitted model. Useful for estimating drawdown at the end of a planned pumping period.</p>
@@ -492,6 +512,22 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <li><strong>Export CSV</strong> — Downloads time, observed drawdown, theoretical drawdown, and residuals as a CSV file</li>
       <li><strong>Export Excel</strong> — Downloads an XLSX file with two sheets: one for data and one for results</li>
     </ul>
+    <p class="text-sm text-slate-500 dark:text-slate-400">On small screens, wide tables in the preview can be scrolled horizontally so nothing is clipped.</p>
+
+    <h2 id="mobile-layout">📱 Phones & Tablets</h2>
+    <p>AquiPro is laid out to work in the browser on phones and tablets as well as desktops.</p>
+    <ul>
+      <li><strong>Tabs</strong> — Main tabs scroll horizontally with touch; labels stay readable.</li>
+      <li><strong>Charts</strong> — Plotly plots use responsive sizing; heights scale with viewport height on smaller breakpoints so the main curve stays visible. <strong>Pinch and scroll zoom</strong> are enabled where Plotly allows it; some toolbars hide lasso/select on very narrow widths to save space.</li>
+      <li><strong>Margins</strong> — Axis titles and tick labels use tighter default margins on small screens to reduce clipping.</li>
+      <li><strong>Map</strong> — The Leaflet map height adapts like the charts; the map recenters correctly after rotation or when the browser UI resizes.</li>
+      <li><strong>Forms</strong> — Setup fields, data-mode buttons, diagnostic controls, and report actions wrap or stack so buttons stay tappable.</li>
+      <li><strong>Modals</strong> — Keyboard shortcuts and column-mapping dialogs scroll inside the viewport if content is tall.</li>
+      <li><strong>Toasts & safe areas</strong> — Notifications respect notched devices where supported.</li>
+    </ul>
+    <div class="note">
+      <strong>📝 This documentation page</strong> uses a collapsible section menu on small screens (dropdown at the top). The main AquiPro app uses the scrolling tab bar described above.
+    </div>
 
     <!-- ========================================= -->
     <!-- THEORY & METHODS -->
@@ -721,6 +757,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <!-- DERIVATIVE -->
     <h3 id="derivative">The Bourdet Derivative — A Modern Diagnostic</h3>
     <p>Introduced by Bourdet et al. (1989), the derivative method revolutionized pumping test interpretation. Rather than guessing which type curve to use, the derivative <strong>reveals the aquifer type</strong> through its characteristic shape.</p>
+    <p>In AquiPro, the automated <strong>Aquifer Diagnosis</strong> applies fixed numerical thresholds to median derivative levels in early / mid / late <strong>log-time</strong> windows. Treat its output as <strong>guidance</strong>: short tests, uneven log sampling, noise, multiple simultaneous effects, or recovery segments can yield <strong>unknown</strong> or misleading labels — always cross-check the plot and site context.</p>
 
     <div class="card">
       <h4 style="margin-top:0">Why is the derivative so powerful?</h4>
@@ -830,7 +867,9 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <div class="card">
       <h4 style="margin-top:0">Analysis Workflow</h4>
       <ol>
-        <li><strong>Always start with the Diagnostic Plot.</strong> Don't guess the aquifer type — let the derivative tell you.</li>
+        <li><strong>Always start with the Diagnostic Plot.</strong> Use the derivative shape and the automated diagnosis as guides — confirm with geology, duration, and distance.</li>
+        <li><strong>If diagnosis is “unknown,”</strong> manually pick a method from the curve and site knowledge; do not assume confined by default.</li>
+        <li><strong>On mobile,</strong> use pinch zoom on charts and horizontal tab scrolling; refresh diagnosis after changing <strong>L</strong> if you need an updated text summary.</li>
         <li><strong>Use preprocessing wisely.</strong> Remove obvious outliers, but don't over-smooth — you may lose real signal.</li>
         <li><strong>Try multiple methods.</strong> Compare T and S from Theis, Cooper-Jacob, and Recovery. If they agree, you have confidence in the result.</li>
         <li><strong>Check the residuals.</strong> Random scatter means a good fit. Systematic patterns mean the model is wrong.</li>
@@ -847,6 +886,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
         <li>🚫 Assuming confined conditions when the aquifer is actually unconfined</li>
         <li>🚫 Forgetting to account for partial penetration effects</li>
         <li>🚫 Using only one observation well — multiple wells give much better constraints</li>
+        <li>🚫 Treating automatic aquifer diagnosis as definitive — it is a pattern helper, not a field determination</li>
       </ul>
     </div>
 
@@ -872,6 +912,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <tbody>
         <tr><td><strong>Aquifer</strong></td><td>A geological formation that stores and transmits groundwater in usable quantities</td></tr>
         <tr><td><strong>Anisotropy Ratio (Kz/Kr)</strong></td><td>The ratio of vertical to horizontal hydraulic conductivity; affects 3D flow and partial penetration</td></tr>
+        <tr><td><strong>Aquifer Diagnosis (AquiPro)</strong></td><td>Automated text summary of derivative shape (confined, unconfined, leaky, barrier, or unknown) with optional method shortcut — heuristic only</td></tr>
         <tr><td><strong>Aquitard</strong></td><td>A low-permeability layer that restricts but does not completely prevent water flow</td></tr>
         <tr><td><strong>Confidence Interval</strong></td><td>A range of values within which the true parameter value is expected to lie with a given probability (e.g. 95%)</td></tr>
         <tr><td><strong>Cone of Depression</strong></td><td>The cone-shaped drop in the water table/piezometric surface around a pumping well</td></tr>
