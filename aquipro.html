@@ -460,11 +460,16 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
     <div class="lg:col-span-2 card">
       <div class="section-title">📈 Diagnostic Plot (Bourdet Derivative)</div>
+      <!-- Well selector for diagnostic (independent of Data Entry selection) -->
+      <div id="diagWellRow" class="flex items-center gap-2 mb-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 hidden">
+        <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Diagnosing:</label>
+        <select id="diagWellSelector" class="select-field text-xs flex-1" onchange="updateDiagnosticPlot()"></select>
+      </div>
       <div class="flex gap-2 mb-2 items-center">
         <label class="text-xs">Derivative Smoothing (L):</label>
-        <input type="range" id="derivL" min="0.1" max="1.0" step="0.05" value="0.3" class="w-32" oninput="document.getElementById('derivLVal').textContent=this.value;updateDiagnosticPlot()">
+        <input type="range" id="derivL" min="0.1" max="1.0" step="0.05" value="0.3" class="w-32" oninput="document.getElementById('derivLVal').textContent=this.value;updateDiagnosticCurve()">
         <span id="derivLVal" class="text-xs font-mono">0.3</span>
-        <button onclick="updateDiagnosticPlot()" class="btn btn-primary text-xs ml-auto">Refresh</button>
+        <button onclick="updateDiagnosticPlot()" class="btn btn-primary text-xs ml-auto">Refresh Diagnosis</button>
       </div>
       <div id="diagnosticChart" style="width:100%;height:450px;"></div>
     </div>
@@ -494,6 +499,11 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
     <!-- Method Selection & Controls -->
     <div class="card space-y-3">
+      <!-- Well selector (hidden when only one well has data) -->
+      <div id="analysisWellRow" class="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 hidden">
+        <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Analysing:</label>
+        <select id="analysisWellSelector" class="select-field text-xs flex-1" onchange="onAnalysisWellChange()"></select>
+      </div>
       <div class="section-title">📐 Analysis Method</div>
       <select id="analysisMethod" class="select-field w-full" onchange="onMethodChange()">
         <option value="theis">Confined — Theis (1935)</option>
@@ -769,8 +779,8 @@ function switchTab(name) {
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
 
   if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) { APP.leafletMap.invalidateSize(); updateMapMarkers(); } }, 100);
-  if (name === 'diagnostic') setTimeout(() => updateDiagnosticPlot(), 100);
-  if (name === 'analysis') setTimeout(() => updateAnalysisPlot(), 100);
+  if (name === 'diagnostic') setTimeout(() => { syncDiagWellSelector(); updateDiagnosticPlot(); }, 100);
+  if (name === 'analysis') setTimeout(() => { syncAnalysisWellSelector(); updateAnalysisPlot(); }, 100);
   if (name === 'data') setTimeout(() => syncWellSelector(), 50);
 }
 
@@ -1797,28 +1807,42 @@ function computeSmoothedDerivative(data, L) {
 function diagnoseAquifer(deriv) {
   if (deriv.length < 5) return { type: 'unknown', confidence: 0, message: 'Insufficient data for diagnosis.' };
 
-  const n = deriv.length;
+  // Remove derivative spikes caused by rate changes or data artifacts before classifying.
+  // Values beyond 6× the median are outliers (unit-slope WBS points are kept — they are ≤ 3× median).
+  const dVals   = deriv.map(p => p.d).sort((a, b) => a - b);
+  const medianD = dVals[Math.floor(dVals.length / 2)];
+  const clean   = deriv.filter(p => p.d <= medianD * 6);
+  if (clean.length < 5) return { type: 'unknown', confidence: 0, message: 'Insufficient data for diagnosis.' };
+
+  const n   = clean.length;
+  const q4  = Math.max(3, Math.floor(n / 4));
   const mid = Math.floor(n / 2);
-  const earlyAvg = deriv.slice(0, Math.max(3, Math.floor(n/4))).reduce((s,p) => s + p.d, 0) / Math.max(3, Math.floor(n/4));
-  const midAvg = deriv.slice(mid-2, mid+3).reduce((s,p) => s + p.d, 0) / Math.min(5, n);
-  const lateAvg = deriv.slice(-Math.max(3, Math.floor(n/4))).reduce((s,p) => s + p.d, 0) / Math.max(3, Math.floor(n/4));
+
+  // Use median for early/mid/late windows — immune to any remaining outliers
+  const mdn = arr => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+  const earlyAvg = mdn(clean.slice(0, q4).map(p => p.d));
+  const midAvg   = mdn(clean.slice(Math.max(0, mid - 2), mid + 3).map(p => p.d));
+  const lateAvg  = mdn(clean.slice(-q4).map(p => p.d));
 
   // Check for unit slope (wellbore storage) in early time
   const earlySlopes = [];
-  for (let i = 1; i < Math.min(5, deriv.length); i++) {
-    if (deriv[i].t > 0 && deriv[i-1].t > 0 && deriv[i].d > 0 && deriv[i-1].d > 0) {
-      earlySlopes.push((Math.log10(deriv[i].d) - Math.log10(deriv[i-1].d)) / (Math.log10(deriv[i].t) - Math.log10(deriv[i-1].t)));
+  for (let i = 1; i < Math.min(5, clean.length); i++) {
+    if (clean[i].t > 0 && clean[i-1].t > 0 && clean[i].d > 0 && clean[i-1].d > 0) {
+      earlySlopes.push((Math.log10(clean[i].d) - Math.log10(clean[i-1].d)) /
+                       (Math.log10(clean[i].t)  - Math.log10(clean[i-1].t)));
     }
   }
-  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a,b)=>a+b,0)/earlySlopes.length : 0;
+  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a,b) => a+b, 0) / earlySlopes.length : 0;
   const hasWBS = Math.abs(avgEarlySlope - 1) < 0.3;
 
-  // Analyze derivative shape
+  // Classify derivative shape
   const variation = Math.abs(lateAvg - earlyAvg) / (earlyAvg || 1);
-  const midDip = midAvg < earlyAvg * 0.6 && midAvg < lateAvg * 0.6;
+  // midDip: plateau clearly below both early and late (Neuman delayed-yield signature)
+  // threshold 0.70 (mid must be ≥30% lower) — detects even moderate unconfined plateaus
+  const midDip  = midAvg < earlyAvg * 0.70 && midAvg < lateAvg * 0.70;
   const dropping = lateAvg < earlyAvg * 0.5;
-  const rising = lateAvg > earlyAvg * 1.8;
-  const flat = variation < 0.3;
+  const rising   = lateAvg > earlyAvg * 1.8;
+  const flat     = variation < 0.3;
 
   let result = { type: 'confined', confidence: 0.5, message: '', recommended: 'theis' };
 
@@ -2103,6 +2127,10 @@ function onMethodChange() {
   const hideStandard = ['step-drawdown'].includes(method);
   document.getElementById('paramControls').querySelectorAll(':scope > div:not([id])').forEach(d => d.classList.toggle('hidden', hideStandard));
   document.getElementById('autoFitBtn').classList.toggle('hidden', ['step-drawdown','distance-dd'].includes(method));
+
+  // Reset sensitivity — results from the previous method are no longer valid
+  APP._sensData = null;
+  document.getElementById('sensitivityCard').classList.add('hidden');
 
   if (method === 'distance-dd') computeDistanceDrawdown();
   else updateAnalysisPlot();
@@ -2422,6 +2450,55 @@ function updateRecoveryPlot(params) {
   autoSave();
 }
 
+function syncAnalysisWellSelector() {
+  const sel = document.getElementById('analysisWellSelector');
+  const row = document.getElementById('analysisWellRow');
+  if (!sel || !row) return;
+
+  const wells = Object.keys(APP.wellData).filter(k => APP.wellData[k]?.length > 0);
+  if (wells.length <= 1) { row.classList.add('hidden'); return; }
+
+  sel.innerHTML = wells.map(w => `<option value="${w}">${w}</option>`).join('');
+
+  // Prefer current active well; otherwise default to first observation well
+  const pwId = (document.getElementById('pwID').value || '').trim();
+  const preferred = (APP.activeWell && wells.includes(APP.activeWell))
+    ? APP.activeWell
+    : (wells.find(w => w !== pwId) || wells[0]);
+  sel.value = preferred;
+  row.classList.remove('hidden');
+
+  // Load that well's data if it doesn't already match APP.data
+  if (preferred !== APP.activeWell && APP.wellData[preferred]?.length) {
+    APP.activeWell = preferred;
+    APP.data = [...APP.wellData[preferred]];
+    applyPreprocessing();
+  }
+}
+
+function onAnalysisWellChange() {
+  const sel = document.getElementById('analysisWellSelector');
+  if (!sel || !sel.value) return;
+  const wellId = sel.value;
+
+  // Persist current data before switching
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data];
+
+  APP.activeWell = wellId;
+  APP.data = [...(APP.wellData[wellId] || [])];
+  APP.processed = [];
+  APP.results = {};
+  applyPreprocessing();
+
+  // Keep the Data Entry well selector in sync
+  const dataWellSel = document.getElementById('wellSelector');
+  if (dataWellSel && Array.from(dataWellSel.options).some(o => o.value === wellId)) {
+    dataWellSel.value = wellId;
+  }
+
+  updateAnalysisPlot();
+}
+
 function updateAnalysisPlot() {
   const data = APP.processed.length ? APP.processed : APP.data;
   if (!data.length) {
@@ -2511,14 +2588,41 @@ function updateAnalysisPlot() {
 // =============================================================================
 // DIAGNOSTIC PLOT
 // =============================================================================
-function updateDiagnosticPlot() {
-  const data = APP.processed.length ? APP.processed : APP.data;
-  if (!data.length) {
-    Plotly.react('diagnosticChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { t: 20, r: 20, b: 40, l: 60 } });
+// Populate the diagnostic well selector from APP.wellData; hide it if only one well
+function syncDiagWellSelector() {
+  const sel = document.getElementById('diagWellSelector');
+  const row = document.getElementById('diagWellRow');
+  if (!sel || !row) return;
+
+  const wells = Object.keys(APP.wellData).filter(k => APP.wellData[k]?.length > 0);
+  if (wells.length <= 1) {
+    row.classList.add('hidden');
     return;
   }
 
-  const L = parseFloat(document.getElementById('derivL').value);
+  const prev = sel.value;
+  sel.innerHTML = wells.map(w => `<option value="${w}">${w}</option>`).join('');
+  // Prefer observation wells for diagnosis (first non-PW), fall back to prev or first
+  const pwId = (document.getElementById('pwID').value || '').trim();
+  const preferred = prev && wells.includes(prev) ? prev
+                  : (wells.find(w => w !== pwId) || wells[0]);
+  sel.value = preferred;
+  row.classList.remove('hidden');
+}
+
+// Returns the data to diagnose: from the diagnostic well selector, or APP.data as fallback
+function getDiagData() {
+  const sel = document.getElementById('diagWellSelector');
+  if (sel && sel.value && APP.wellData[sel.value]?.length) return APP.wellData[sel.value];
+  return APP.processed.length ? APP.processed : APP.data;
+}
+
+// Redraws only the derivative curve — called on slider oninput (no diagnosis re-run)
+function updateDiagnosticCurve() {
+  const data = getDiagData();
+  if (!data.length) return;
+
+  const L     = parseFloat(document.getElementById('derivL').value);
   const deriv = computeSmoothedDerivative(data, L);
   const isDark = APP.isDark;
 
@@ -2529,7 +2633,6 @@ function updateDiagnosticPlot() {
       marker: { color: '#3b82f6', size: 6 }, line: { color: '#3b82f6', width: 1.5 }
     }
   ];
-
   if (deriv.length > 1) {
     traces.push({
       x: deriv.map(d => d.t), y: deriv.map(d => d.d),
@@ -2538,7 +2641,7 @@ function updateDiagnosticPlot() {
     });
   }
 
-  const layout = {
+  Plotly.react('diagnosticChart', traces, {
     xaxis: { title: 'Time (min)', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
     yaxis: { title: 'Drawdown / Derivative', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
@@ -2546,12 +2649,39 @@ function updateDiagnosticPlot() {
     legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
     margin: { t: 20, r: 20, b: 50, l: 60 },
     hovermode: 'closest'
-  };
+  }, { responsive: true });
 
-  Plotly.react('diagnosticChart', traces, layout, { responsive: true });
+  // Mark diagnosis as potentially stale
+  const diagEl = document.getElementById('diagnosisResult');
+  const staleBar = diagEl.querySelector('#diagStaleBar');
+  if (!staleBar) {
+    const bar = document.createElement('div');
+    bar.id = 'diagStaleBar';
+    bar.className = 'text-xs text-amber-600 dark:text-amber-400 text-center py-1 italic';
+    bar.textContent = 'Smoothing changed — click "Refresh Diagnosis" to update.';
+    diagEl.prepend(bar);
+  }
+}
 
-  // Run diagnosis
-  const diag = diagnoseAquifer(deriv);
+// Full update: redraws curve AND re-runs diagnosis — called on Refresh button and tab switch
+function updateDiagnosticPlot() {
+  const data = getDiagData();
+  if (!data.length) {
+    Plotly.react('diagnosticChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { t: 20, r: 20, b: 40, l: 60 } });
+    return;
+  }
+
+  // Draw the curve (reuses the same rendering logic)
+  updateDiagnosticCurve();
+
+  // Remove stale indicator now that we're re-diagnosing
+  const staleBar = document.getElementById('diagStaleBar');
+  if (staleBar) staleBar.remove();
+
+  const L     = parseFloat(document.getElementById('derivL').value);
+  const deriv = computeSmoothedDerivative(data, L);
+
+  const diag   = diagnoseAquifer(deriv);
   const diagEl = document.getElementById('diagnosisResult');
   const colors = { confined: 'blue', unconfined: 'green', leaky: 'purple', barrier: 'red', unknown: 'slate' };
   const c = colors[diag.type] || 'slate';
@@ -3287,7 +3417,48 @@ function loadProjectJSON() {
 // =============================================================================
 // EXAMPLE DATA
 // =============================================================================
+
+// Shared reset called before loading any example — clears previous data/results/UI
+function _resetForExample() {
+  // APP state
+  APP.data = []; APP.processed = []; APP.results = {}; APP.allResults = [];
+  APP.confidenceIntervals = null; APP.rateSchedule = [];
+  APP.recovery = []; APP.wellData = {}; APP.activeWell = '';
+  APP._sensData = null;
+
+  // Hide sensitivity card
+  document.getElementById('sensitivityCard').classList.add('hidden');
+
+  // Reset analysis well selectors
+  ['analysisWellRow', 'diagWellRow'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+
+  // Collapse variable-rate UI
+  document.getElementById('chkVarRate').checked = false;
+  document.getElementById('rateSchedulePanel').classList.add('hidden');
+  document.getElementById('rateRows').innerHTML =
+    '<div class="flex gap-1 rate-row"><input type="number" class="input-field rate-time" value="0" step="any" style="width:44%" readonly>' +
+    '<input type="number" class="input-field rate-q" placeholder="Q₁" step="any" style="width:44%"><span style="width:12%"></span></div>';
+
+  // Remove extra observation well entries (keep only the first)
+  const entries = document.querySelectorAll('.obs-well-entry');
+  entries.forEach((el, i) => { if (i > 0) el.remove(); });
+  // Clear the first OW entry fields
+  const first = document.querySelector('.obs-well-entry');
+  if (first) {
+    first.querySelector('.obs-id').value  = '';
+    first.querySelector('.obs-lat').value = '';
+    first.querySelector('.obs-lng').value = '';
+  }
+
+  // Clear data table and stats
+  clearDataTable();
+}
+
 function loadExampleData() {
+  _resetForExample();
   document.getElementById('projectName').value = 'Springfield Aquifer Test';
   document.getElementById('projectNameToolbar').value = 'Springfield Aquifer Test';
   document.getElementById('projLocation').value = 'Springfield Industrial Zone, Well Field A';
@@ -3348,6 +3519,7 @@ function loadExampleData() {
 }
 
 function loadAdvancedExampleData() {
+  _resetForExample();
   // --- Project metadata ---
   document.getElementById('projectName').value = 'Riverdale Valley — Advanced Test';
   document.getElementById('projectNameToolbar').value = 'Riverdale Valley — Advanced Test';
