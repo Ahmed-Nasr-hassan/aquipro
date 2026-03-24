@@ -1882,63 +1882,48 @@ function diagnoseAquifer(deriv) {
     return s[Math.floor(s.length / 2)];
   };
 
-  const logT = pts.map(p => Math.log10(p.t));
-  const minL = logT[0];
-  const maxL = logT[logT.length - 1];
-  const span = maxL - minL;
-
-  function indexTertiles() {
-    const n = pts.length;
-    const i1 = Math.max(2, Math.floor(n / 3));
-    const i2 = Math.max(i1 + 1, Math.min(n - 2, Math.ceil(2 * n / 3)));
-    return {
-      earlyDs: pts.slice(0, i1).map(p => p.d),
-      midDs: pts.slice(i1, i2).map(p => p.d),
-      lateDs: pts.slice(i2, n).map(p => p.d)
-    };
-  }
-
-  let earlyDs, midDs, lateDs;
-  if (span < 1e-9) {
-    ({ earlyDs, midDs, lateDs } = indexTertiles());
-  } else {
-    const eEnd = minL + span / 3;
-    const lStart = maxL - span / 3;
-    earlyDs = [];
-    midDs = [];
-    lateDs = [];
-    for (let i = 0; i < pts.length; i++) {
-      const L = logT[i];
-      if (L <= eEnd) earlyDs.push(pts[i].d);
-      else if (L >= lStart) lateDs.push(pts[i].d);
-      else midDs.push(pts[i].d);
-    }
-    const minPerBand = 2;
-    if (earlyDs.length < minPerBand || midDs.length < minPerBand || lateDs.length < minPerBand) {
-      ({ earlyDs, midDs, lateDs } = indexTertiles());
-    }
-  }
-
-  const earlyAvg = mdn(earlyDs);
-  const midAvg = mdn(midDs);
-  const lateAvg = mdn(lateDs);
-  if (Number.isNaN(earlyAvg) || Number.isNaN(midAvg) || Number.isNaN(lateAvg)) return insufficient;
-
-  // WBS: unit slope on derivative vs time in the earliest third of points (by time order)
+  // 1. Detect WBS FIRST on the sorted points, before any segmentation
   const earlyPtCount = Math.max(2, Math.min(6, Math.ceil(pts.length / 3)));
   const earlyCut = pts.slice(0, earlyPtCount);
   const earlySlopes = [];
   for (let i = 1; i < earlyCut.length; i++) {
-    if (earlyCut[i].t > 0 && earlyCut[i - 1].t > 0 && earlyCut[i].d > 0 && earlyCut[i - 1].d > 0) {
-      earlySlopes.push((Math.log10(earlyCut[i].d) - Math.log10(earlyCut[i - 1].d)) /
-                       (Math.log10(earlyCut[i].t) - Math.log10(earlyCut[i - 1].t)));
+    if (earlyCut[i].t > 0 && earlyCut[i-1].t > 0 && earlyCut[i].d > 0 && earlyCut[i-1].d > 0) {
+      earlySlopes.push((Math.log10(earlyCut[i].d) - Math.log10(earlyCut[i-1].d)) /
+                       (Math.log10(earlyCut[i].t)  - Math.log10(earlyCut[i-1].t)));
     }
   }
-  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a, b) => a + b, 0) / earlySlopes.length : 0;
+  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a,b) => a+b, 0) / earlySlopes.length : 0;
   const hasWBS = Math.abs(avgEarlySlope - 1) < 0.3;
 
+  // 2. Strip unit-slope WBS points so they don't inflate earlyAvg
+  let analysisPts = pts;
+  if (hasWBS) {
+    let wbsEndIdx = 0;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const slope = (Math.log10(pts[i+1].d) - Math.log10(pts[i].d)) /
+                    (Math.log10(pts[i+1].t)  - Math.log10(pts[i].t));
+      if (slope < 0.6) { wbsEndIdx = i; break; }
+    }
+    const trimmed = pts.slice(wbsEndIdx);
+    analysisPts = trimmed.length >= 5 ? trimmed : pts; // fallback if test too short
+  }
+
+  // 3. Re-segment on the (possibly trimmed) analysis points
+  const an = analysisPts.length;
+  const ai1 = Math.max(2, Math.floor(an / 3));
+  const ai2 = Math.max(ai1 + 1, Math.min(an - 2, Math.ceil(2 * an / 3)));
+  const earlyDs = analysisPts.slice(0,   ai1).map(p => p.d);
+  const midDs   = analysisPts.slice(ai1, ai2).map(p => p.d);
+  const lateDs  = analysisPts.slice(ai2,  an).map(p => p.d);
+
+  const earlyAvg = mdn(earlyDs);
+  const midAvg   = mdn(midDs);
+  const lateAvg  = mdn(lateDs);
+  if (Number.isNaN(earlyAvg) || Number.isNaN(midAvg) || Number.isNaN(lateAvg)) return insufficient;
+
   const variation = Math.abs(lateAvg - earlyAvg) / (earlyAvg || 1);
-  const midDip = midAvg < earlyAvg * 0.70 && midAvg < lateAvg * 0.70;
+  // midDip: mid clearly below early AND late recovering above mid (captures dip-and-recovery shape)
+  const midDip = midAvg < earlyAvg * 0.75 && lateAvg > midAvg * 1.2;
   const dropping = lateAvg < earlyAvg * 0.5;
   const rising = lateAvg > earlyAvg * 1.8;
   const flat = variation < 0.3;
@@ -2796,6 +2781,12 @@ function updateDiagnosticPlot() {
         Use ${rec.charAt(0).toUpperCase() + rec.slice(1)} Method →
       </button>`
     : `<p class="text-xs text-slate-500 dark:text-slate-400">No automatic method pick — choose from geology and the curve shape on the Analysis tab.</p>`;
+  const varRateWarning = APP.rateSchedule && APP.rateSchedule.length > 1
+    ? `<div class="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-xs text-red-700 dark:text-red-400">
+        <strong>⚠ Variable-rate test:</strong> The standard Bourdet derivative is mathematically invalid when Q changes. Diagnosis may be inaccurate — interpret the curve shape manually.
+       </div>`
+    : '';
+
   diagEl.innerHTML = `
     <div class="${st.card}">
       <div class="flex items-center gap-2 mb-2">
@@ -2805,6 +2796,7 @@ function updateDiagnosticPlot() {
       </div>
       <p class="text-xs text-slate-600 dark:text-slate-300">${diag.message}</p>
     </div>
+    ${varRateWarning}
     <div class="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
       <div class="text-xs font-semibold mb-1">💡 Recommended Method</div>
       ${recBtn}
