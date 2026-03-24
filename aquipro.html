@@ -2,7 +2,7 @@
 <html lang="en" class="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AquiPro — Pumping Test Analyzer</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
@@ -55,7 +55,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 .dark .tooltip-icon{background:#334155;color:#94a3b8}
 .tooltip-icon:hover .tooltip-text{display:block}
 .tooltip-text{display:none;position:absolute;bottom:125%;left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;padding:.5rem .75rem;border-radius:.5rem;font-size:.6875rem;font-weight:400;width:200px;z-index:1000;line-height:1.4;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,.3)}
-.toast-container{position:fixed;top:1rem;right:1rem;z-index:10000;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast-container{position:fixed;top:max(.5rem,env(safe-area-inset-top));right:max(.5rem,env(safe-area-inset-right));left:auto;z-index:10000;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;align-items:flex-end;max-width:100%;padding-left:.5rem;box-sizing:border-box}
 .toast{pointer-events:auto;padding:.75rem 1rem;border-radius:.5rem;font-size:.8125rem;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease;display:flex;align-items:center;gap:.5rem;max-width:360px}
 .toast-success{background:#059669;color:#fff}.toast-error{background:#dc2626;color:#fff}
 .toast-warning{background:#d97706;color:#fff}.toast-info{background:#2563eb;color:#fff}
@@ -98,21 +98,40 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 .method-card.selected{border-color:#3b82f6;background:#eff6ff}
 .dark .method-card{border-color:#334155}.dark .method-card:hover{border-color:#60a5fa}
 .dark .method-card.selected{border-color:#60a5fa;background:#1e3a5c}
-@media(max-width:768px){.tab-nav{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.25rem}.tab-btn{font-size:.75rem;padding:.5rem .75rem}}
+html{-webkit-text-size-adjust:100%}
+.chart-shell{width:100%;max-width:100%;min-width:0;overflow:hidden;touch-action:pan-x pan-y}
+.plot-h-analysis{height:420px;min-height:220px;width:100%}
+.plot-h-diag{height:450px;min-height:220px;width:100%}
+.plot-h-res{height:180px;min-height:110px;width:100%}
+.plot-h-sens{height:320px;min-height:180px;width:100%}
+.plot-h-map{height:550px;min-height:260px;width:100%}
+@media(max-width:1023px){
+  .plot-h-analysis{height:min(42vh,440px)}
+  .plot-h-diag{height:min(44vh,460px)}
+  .plot-h-res{height:min(20vh,200px)}
+  .plot-h-sens{height:min(36vh,380px)}
+  .plot-h-map{height:min(48vh,520px)}
+}
+@media(max-width:640px){
+  .tab-nav{scrollbar-width:thin}
+  .toast{max-width:min(360px,calc(100vw - 1rem))}
+  #shortcutsModal .card,#columnMappingModal .card{max-height:min(88vh,640px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:768px){.tab-nav{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.25rem;flex-wrap:nowrap}.tab-btn{font-size:.75rem;padding:.5rem .75rem;flex-shrink:0}}
 </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen overflow-x-hidden">
 
 <!-- TOAST CONTAINER -->
 <div id="toastContainer" class="toast-container"></div>
 
 <!-- TOP TOOLBAR -->
-<header class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5">
-  <div class="max-w-[1400px] mx-auto flex items-center justify-between gap-3 flex-wrap">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/30">💧</div>
-      <div>
-        <input id="projectNameToolbar" type="text" value="Untitled Project" class="text-sm font-semibold bg-transparent border-none outline-none dark:text-white" style="width:180px">
+<header class="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 px-3 sm:px-4 py-2.5">
+  <div class="max-w-[1400px] mx-auto flex items-center justify-between gap-2 sm:gap-3 flex-wrap min-w-0">
+    <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 basis-[min(100%,16rem)]">
+      <div class="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/30">💧</div>
+      <div class="min-w-0 flex-1">
+        <input id="projectNameToolbar" type="text" value="Untitled Project" class="text-sm font-semibold bg-transparent border-none outline-none dark:text-white w-full max-w-[180px] sm:max-w-[220px] min-w-0">
         <div class="text-[.65rem] text-slate-400 tracking-wide"><strong class="text-blue-500">Aqui</strong><strong class="text-cyan-500">Pro</strong> — Pumping Test Analyzer</div>
       </div>
     </div>
@@ -121,7 +140,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
       <span id="liveS" class="badge-s hidden">S: —</span>
       <span id="liveMethod" class="text-[.65rem] text-slate-400 hidden"></span>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1 sm:gap-2 flex-wrap justify-end shrink-0">
       <button onclick="saveProjectJSON()" class="btn btn-outline text-xs" title="Save Project (Ctrl+S)">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
         Save
@@ -145,7 +164,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 
 <!-- TAB NAVIGATION -->
 <nav class="sticky top-[3.75rem] z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-700">
-  <div class="max-w-[1400px] mx-auto px-4 py-2 tab-nav flex gap-1.5 overflow-x-auto">
+  <div class="max-w-[1400px] mx-auto px-3 sm:px-4 py-2 tab-nav flex gap-1.5 overflow-x-auto min-w-0">
     <button class="tab-btn active" data-tab="setup" onclick="switchTab('setup')">
       <span class="mr-1">⚙️</span> Project Setup
     </button>
@@ -168,7 +187,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 </nav>
 
 <!-- MAIN CONTENT -->
-<main class="max-w-[1400px] mx-auto px-4 py-4">
+<main class="max-w-[1400px] mx-auto px-3 sm:px-4 py-4 w-full min-w-0">
 
 <!-- ===== TAB 1: PROJECT SETUP ===== -->
 <div id="tab-setup" class="tab-content active space-y-4">
@@ -335,29 +354,31 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
     <div class="lg:col-span-2 card">
       <div class="section-title">📥 Time-Drawdown Data</div>
       <!-- Well Selector -->
-      <div class="flex items-center gap-3 mb-3 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
-        <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Entering data for:</label>
-        <select id="wellSelector" class="select-field text-xs flex-1" onchange="onWellSelectorChange()">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 min-w-0">
+        <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 shrink-0">Entering data for:</label>
+        <div class="flex flex-col sm:flex-row gap-2 flex-1 min-w-0">
+        <select id="wellSelector" class="select-field text-xs flex-1 min-w-0" onchange="onWellSelectorChange()">
           <option value="">— define wells in Project Setup —</option>
         </select>
-        <button onclick="syncWellSelector()" class="btn btn-outline text-xs whitespace-nowrap" title="Re-read wells from Project Setup">↻ Sync</button>
+        <button onclick="syncWellSelector()" class="btn btn-outline text-xs whitespace-nowrap shrink-0" title="Re-read wells from Project Setup">↻ Sync</button>
+        </div>
       </div>
-      <div class="flex gap-2 mb-3">
-        <button onclick="setDataMode('quick')" class="btn btn-outline text-xs data-mode-btn" data-mode="quick">⚡ Quick Entry</button>
-        <button onclick="setDataMode('upload')" class="btn btn-outline text-xs data-mode-btn active" data-mode="upload">📁 Upload CSV/Excel</button>
-        <button onclick="setDataMode('manual')" class="btn btn-outline text-xs data-mode-btn" data-mode="manual">✏️ Manual Entry</button>
-        <button onclick="setDataMode('paste')" class="btn btn-outline text-xs data-mode-btn" data-mode="paste">📋 Paste Data</button>
+      <div class="flex flex-wrap gap-2 mb-3">
+        <button onclick="setDataMode('quick')" class="btn btn-outline text-xs data-mode-btn flex-1 min-w-[8.5rem] sm:flex-none" data-mode="quick">⚡ Quick Entry</button>
+        <button onclick="setDataMode('upload')" class="btn btn-outline text-xs data-mode-btn active flex-1 min-w-[8.5rem] sm:flex-none" data-mode="upload">📁 Upload CSV/Excel</button>
+        <button onclick="setDataMode('manual')" class="btn btn-outline text-xs data-mode-btn flex-1 min-w-[8.5rem] sm:flex-none" data-mode="manual">✏️ Manual Entry</button>
+        <button onclick="setDataMode('paste')" class="btn btn-outline text-xs data-mode-btn flex-1 min-w-[8.5rem] sm:flex-none" data-mode="paste">📋 Paste Data</button>
       </div>
 
       <!-- Quick Entry Mode -->
       <div id="mode-quick" class="data-mode-content hidden">
         <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Enter time values in one box and drawdown values in the other — one value per line. Both lists must have the same number of values.</p>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="min-w-0">
             <label class="text-xs font-semibold">Time (min) — one per line</label>
             <textarea id="quickTime" class="input-field font-mono text-xs" rows="12" placeholder="1&#10;2&#10;5&#10;10&#10;20&#10;50&#10;100&#10;200&#10;500&#10;1000"></textarea>
           </div>
-          <div>
+          <div class="min-w-0">
             <label class="text-xs font-semibold">Drawdown (m) — one per line</label>
             <textarea id="quickDD" class="input-field font-mono text-xs" rows="12" placeholder="0.15&#10;0.28&#10;0.52&#10;0.76&#10;1.03&#10;1.37&#10;1.71&#10;2.04&#10;2.39&#10;2.68"></textarea>
           </div>
@@ -457,21 +478,23 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 
 <!-- ===== TAB 3: DIAGNOSTIC PLOT ===== -->
 <div id="tab-diagnostic" class="tab-content space-y-4">
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="lg:col-span-2 card">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
+    <div class="lg:col-span-2 card min-w-0 overflow-hidden">
       <div class="section-title">📈 Diagnostic Plot (Bourdet Derivative)</div>
       <!-- Well selector for diagnostic (independent of Data Entry selection) -->
       <div id="diagWellRow" class="flex items-center gap-2 mb-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 hidden">
         <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Diagnosing:</label>
         <select id="diagWellSelector" class="select-field text-xs flex-1" onchange="updateDiagnosticPlot()"></select>
       </div>
-      <div class="flex gap-2 mb-2 items-center">
-        <label class="text-xs">Derivative Smoothing (L):</label>
-        <input type="range" id="derivL" min="0.1" max="1.0" step="0.05" value="0.3" class="w-32" oninput="document.getElementById('derivLVal').textContent=this.value;updateDiagnosticCurve()">
-        <span id="derivLVal" class="text-xs font-mono">0.3</span>
-        <button onclick="updateDiagnosticPlot()" class="btn btn-primary text-xs ml-auto">Refresh Diagnosis</button>
+      <div class="flex flex-wrap gap-2 mb-2 items-center">
+        <label class="text-xs shrink-0">Derivative Smoothing (L):</label>
+        <input type="range" id="derivL" min="0.1" max="1.0" step="0.05" value="0.3" class="flex-1 min-w-[6rem] max-w-full sm:w-32 sm:flex-none h-2 sm:h-auto accent-blue-500" oninput="document.getElementById('derivLVal').textContent=this.value;updateDiagnosticCurve()">
+        <span id="derivLVal" class="text-xs font-mono shrink-0">0.3</span>
+        <button onclick="updateDiagnosticPlot()" class="btn btn-primary text-xs w-full sm:w-auto sm:ml-auto">Refresh Diagnosis</button>
       </div>
-      <div id="diagnosticChart" style="width:100%;height:450px;"></div>
+      <div class="chart-shell rounded-lg border border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/30">
+        <div id="diagnosticChart" class="plot-h-diag"></div>
+      </div>
     </div>
     <div class="card">
       <div class="section-title">🧪 Aquifer Diagnosis</div>
@@ -496,9 +519,9 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 
 <!-- ===== TAB 4: ANALYSIS ===== -->
 <div id="tab-analysis" class="tab-content space-y-4">
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0">
     <!-- Method Selection & Controls -->
-    <div class="card space-y-3">
+    <div class="card space-y-3 min-w-0 overflow-hidden">
       <!-- Well selector (hidden when only one well has data) -->
       <div id="analysisWellRow" class="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 hidden">
         <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Analysing:</label>
@@ -610,20 +633,26 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
     </div>
 
     <!-- Charts -->
-    <div class="lg:col-span-2 space-y-4">
-      <div class="card">
-        <div id="analysisChart" style="width:100%;height:420px;"></div>
+    <div class="lg:col-span-2 space-y-4 min-w-0">
+      <div class="card min-w-0 overflow-hidden">
+        <div class="chart-shell">
+          <div id="analysisChart" class="plot-h-analysis"></div>
+        </div>
       </div>
-      <div class="card">
+      <div class="card min-w-0 overflow-hidden">
         <div class="section-title text-sm">Residuals</div>
-        <div id="residualChart" style="width:100%;height:180px;"></div>
+        <div class="chart-shell">
+          <div id="residualChart" class="plot-h-res"></div>
+        </div>
       </div>
-      <div id="sensitivityCard" class="card hidden">
+      <div id="sensitivityCard" class="card hidden min-w-0 overflow-hidden">
         <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div class="section-title text-sm mb-0">📊 Parameter Sensitivity</div>
-          <div id="sensitivityTabs" class="flex gap-1.5 flex-wrap"></div>
+          <div id="sensitivityTabs" class="flex gap-1.5 flex-wrap overflow-x-auto max-w-full pb-1 -mb-1"></div>
         </div>
-        <div id="sensitivityChart" style="width:100%;height:320px;"></div>
+        <div class="chart-shell">
+          <div id="sensitivityChart" class="plot-h-sens"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -639,8 +668,8 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
     <button onclick="switchTab('setup')" class="btn btn-primary text-xs mt-4">← Go to Project Setup</button>
   </div>
   <div id="mapWithCoords" class="grid grid-cols-1 lg:grid-cols-3 gap-4 hidden">
-    <div class="lg:col-span-2 card" style="padding:0;overflow:hidden">
-      <div id="map" style="width:100%;height:550px;"></div>
+    <div class="lg:col-span-2 card min-w-0 overflow-hidden" style="padding:0">
+      <div id="map" class="plot-h-map z-0"></div>
     </div>
     <div class="card space-y-3">
       <div class="section-title">🗺️ Map Controls</div>
@@ -671,19 +700,19 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 
 <!-- ===== TAB 6: REPORT ===== -->
 <div id="tab-report" class="tab-content space-y-4">
-  <div class="card">
-    <div class="flex items-center justify-between mb-4">
+  <div class="card min-w-0 overflow-hidden">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
       <div class="section-title mb-0">📄 Report Generation</div>
-      <div class="flex gap-2">
-        <button onclick="exportCSV()" class="btn btn-outline text-xs">📊 Export CSV</button>
-        <button onclick="exportExcel()" class="btn btn-outline text-xs">📗 Export Excel</button>
-        <button onclick="generatePDF()" class="btn btn-success" id="pdfBtn">
+      <div class="flex flex-wrap gap-2">
+        <button onclick="exportCSV()" class="btn btn-outline text-xs flex-1 min-w-[7rem] sm:flex-none">📊 Export CSV</button>
+        <button onclick="exportExcel()" class="btn btn-outline text-xs flex-1 min-w-[7rem] sm:flex-none">📗 Export Excel</button>
+        <button onclick="generatePDF()" class="btn btn-success w-full sm:w-auto" id="pdfBtn">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           Generate PDF Report
         </button>
       </div>
     </div>
-    <div id="reportPreview" class="p-6 bg-white dark:bg-slate-800 rounded-lg border dark:border-slate-600 min-h-[500px]">
+    <div id="reportPreview" class="p-3 sm:p-6 bg-white dark:bg-slate-800 rounded-lg border dark:border-slate-600 min-h-[min(500px,70vh)] sm:min-h-[500px] overflow-x-auto">
       <div class="text-center text-slate-400 py-12">
         <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         <p class="text-sm font-medium">Report Preview</p>
@@ -778,10 +807,11 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelector(`.tab-btn[data-tab="${name}"]`).classList.add('active');
 
-  if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) { APP.leafletMap.invalidateSize(); updateMapMarkers(); } }, 100);
-  if (name === 'diagnostic') setTimeout(() => { syncDiagWellSelector(); updateDiagnosticPlot(); }, 100);
-  if (name === 'analysis') setTimeout(() => { syncAnalysisWellSelector(); updateAnalysisPlot(); }, 100);
+  if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) { APP.leafletMap.invalidateSize(); updateMapMarkers(); } scheduleResizePlots(); }, 120);
+  if (name === 'diagnostic') setTimeout(() => { syncDiagWellSelector(); updateDiagnosticPlot(); scheduleResizePlots(); }, 120);
+  if (name === 'analysis') setTimeout(() => { syncAnalysisWellSelector(); updateAnalysisPlot(); scheduleResizePlots(); }, 120);
   if (name === 'data') setTimeout(() => syncWellSelector(), 50);
+  if (name === 'report') setTimeout(scheduleResizePlots, 80);
 }
 
 // =============================================================================
@@ -2037,8 +2067,8 @@ function runStepDrawdown() {
     yaxis: { title: 's/Q (day/m²)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    margin: { t: 30, r: 20, b: 50, l: 70 }
-  }, { responsive: true });
+    margin: getPlotMargins({ l: window.innerWidth < 640 ? 52 : 70 })
+  }, getPlotlyInteractionConfig());
 
   // Compute well efficiency for each step
   let effHtml = '<div class="section-title text-sm">📊 Step-Drawdown Results</div>';
@@ -2113,8 +2143,8 @@ function computeDistanceDrawdown() {
     yaxis: { title: 'Drawdown (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    margin: { t: 30, r: 20, b: 50, l: 60 }
-  }, { responsive: true });
+    margin: getPlotMargins()
+  }, getPlotlyInteractionConfig());
 }
 
 // =============================================================================
@@ -2430,8 +2460,8 @@ function updateRecoveryPlot(params) {
     Plotly.react('analysisChart', [], {
       paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
       annotations: [{ text: "No recovery data extracted yet.", showarrow: false, xref: 'paper', yref: 'paper', x: 0.5, y: 0.5, font: { size: 14, color: isDark ? '#94a3b8' : '#64748b' } }],
-      margin: { t: 40, r: 20, b: 40, l: 60 }
-    });
+      margin: getPlotMargins({ t: 40, b: 40 })
+    }, getPlotlyInteractionConfig({ displayModeBar: false }));
     document.getElementById('resultsContent').innerHTML = noDataMsg;
     return;
   }
@@ -2469,10 +2499,10 @@ function updateRecoveryPlot(params) {
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
     legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
-    margin: { t: 30, r: 20, b: 50, l: 60 },
+    margin: getPlotMargins(),
     hovermode: 'closest'
   };
-  Plotly.react('analysisChart', traces, layout, { responsive: true, displayModeBar: true });
+  Plotly.react('analysisChart', traces, layout, getPlotlyInteractionConfig());
 
   // Residuals
   const predicted = rData.map(d => computeTheoreticalSingle(d.tOverTp, 'recovery', params, Q));
@@ -2486,8 +2516,8 @@ function updateRecoveryPlot(params) {
     yaxis: { title: 'Residual (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569', zeroline: true, zerolinecolor: isDark ? '#64748b' : '#94a3b8' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    margin: { t: 10, r: 20, b: 40, l: 60 }, showlegend: false
-  }, { responsive: true, displayModeBar: false });
+    margin: getPlotMargins({ t: 10 }), showlegend: false
+  }, getPlotlyInteractionConfig({ displayModeBar: false }));
 
   // Results
   const metrics = computeMetrics(observed, predicted);
@@ -2578,7 +2608,7 @@ function onAnalysisWellChange() {
 function updateAnalysisPlot() {
   const data = APP.processed.length ? APP.processed : APP.data;
   if (!data.length) {
-    Plotly.react('analysisChart', [], { ...getPlotLayout('Analysis', ''), margin: { t: 40, r: 20, b: 40, l: 60 } });
+    Plotly.react('analysisChart', [], { ...getPlotLayout('Analysis', ''), margin: getPlotMargins({ t: 40, b: 40 }) }, getPlotlyInteractionConfig({ displayModeBar: false }));
     return;
   }
 
@@ -2637,11 +2667,11 @@ function updateAnalysisPlot() {
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
     legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
-    margin: { t: 30, r: 20, b: 50, l: 60 },
+    margin: getPlotMargins(),
     hovermode: 'closest'
   };
 
-  Plotly.react('analysisChart', traces, layout, { responsive: true, displayModeBar: true });
+  Plotly.react('analysisChart', traces, layout, getPlotlyInteractionConfig());
 
   // Residuals
   const predicted = data.map(d => computeTheoretical(d.t, method, params));
@@ -2654,9 +2684,9 @@ function updateAnalysisPlot() {
     yaxis: { title: 'Residual (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569', zeroline: true, zerolinecolor: isDark ? '#64748b' : '#94a3b8' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    margin: { t: 10, r: 20, b: 40, l: 60 },
+    margin: getPlotMargins({ t: 10 }),
     showlegend: false
-  }, { responsive: true, displayModeBar: false });
+  }, getPlotlyInteractionConfig({ displayModeBar: false }));
 
   updateResults();
 }
@@ -2723,9 +2753,9 @@ function updateDiagnosticCurve() {
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
     legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
-    margin: { t: 20, r: 20, b: 50, l: 60 },
+    margin: getPlotMargins({ t: 20 }),
     hovermode: 'closest'
-  }, { responsive: true });
+  }, getPlotlyInteractionConfig());
 
   // Mark diagnosis as potentially stale
   const diagEl = document.getElementById('diagnosisResult');
@@ -2743,7 +2773,7 @@ function updateDiagnosticCurve() {
 function updateDiagnosticPlot() {
   const data = getDiagData();
   if (!data.length) {
-    Plotly.react('diagnosticChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { t: 20, r: 20, b: 40, l: 60 } });
+    Plotly.react('diagnosticChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: getPlotMargins({ t: 20, b: 40 }) }, getPlotlyInteractionConfig({ displayModeBar: false }));
     return;
   }
 
@@ -2838,6 +2868,7 @@ function runSensitivity() {
 
   if (APP._sensData.params.length) renderSensParam(APP._sensData.params[0].key);
   toast('Sensitivity analysis complete', 'success');
+  requestAnimationFrame(scheduleResizePlots);
 }
 
 function _fmtSensVal(key, val) {
@@ -2909,6 +2940,27 @@ function renderSensParam(paramKey) {
     marker: { color: '#64748b', size: 5, symbol: 'circle-open', line: { width: 1.5 } }
   });
 
+  const narrow = window.innerWidth < 640;
+  const leg = narrow
+    ? {
+        orientation: 'h',
+        yanchor: 'top',
+        y: -0.22,
+        x: 0.5,
+        xanchor: 'center',
+        bgcolor: isDark ? 'rgba(15,23,42,0.75)' : 'rgba(255,255,255,0.85)',
+        bordercolor: isDark ? '#334155' : '#e2e8f0',
+        borderwidth: 1,
+        font: { size: 9 }
+      }
+    : {
+        x: 1, y: 1, xanchor: 'right', yanchor: 'top',
+        bgcolor: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.7)',
+        bordercolor: isDark ? '#334155' : '#e2e8f0',
+        borderwidth: 1,
+        font: { size: 10 }
+      };
+
   Plotly.react('sensitivityChart', traces, {
     xaxis: { title: 'Time (min)', type: 'log',
              gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569',
@@ -2918,12 +2970,9 @@ function renderSensParam(paramKey) {
              linecolor: isDark ? '#475569' : '#cbd5e1' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    legend: { x: 1, y: 1, xanchor: 'right', yanchor: 'top',
-              bgcolor: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.7)',
-              bordercolor: isDark ? '#334155' : '#e2e8f0', borderwidth: 1,
-              font: { size: 10 } },
-    margin: { t: 10, r: 20, b: 50, l: 60 },
-  }, { responsive: true });
+    legend: leg,
+    margin: getPlotMargins({ t: 10, b: narrow ? 72 : 50, r: narrow ? 10 : 20 }),
+  }, getPlotlyInteractionConfig());
 }
 
 // =============================================================================
@@ -3507,7 +3556,7 @@ function _clearDisplayPanels() {
     '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">' +
     '<p class="text-xs text-amber-600 dark:text-amber-400">Load data and click Refresh to run diagnosis.</p></div>';
   document.getElementById('resultsContent').innerHTML = '';
-  Plotly.react('residualChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { t: 10, r: 10, b: 10, l: 10 } });
+  Plotly.react('residualChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: getPlotMargins({ t: 10, r: 10, b: 10, l: 10 }) }, getPlotlyInteractionConfig({ displayModeBar: false }));
 }
 
 // Shared reset called before loading any example — clears previous data/results/UI
@@ -3829,6 +3878,7 @@ document.addEventListener('keydown', function(e) {
 function replotAll() {
   updateDiagnosticPlot();
   updateAnalysisPlot();
+  scheduleResizePlots();
 }
 
 function getPlotLayout(title, yTitle) {
@@ -3837,6 +3887,44 @@ function getPlotLayout(title, yTitle) {
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
   };
+}
+
+/** Tighter margins on narrow screens so axis titles stay visible */
+function getPlotMargins(overrides = {}) {
+  const w = window.innerWidth;
+  let m;
+  if (w < 400) m = { t: 32, r: 8, b: 42, l: 44 };
+  else if (w < 640) m = { t: 26, r: 12, b: 46, l: 50 };
+  else if (w < 1024) m = { t: 28, r: 16, b: 48, l: 54 };
+  else m = { t: 30, r: 20, b: 50, l: 60 };
+  return { ...m, ...overrides };
+}
+
+function getPlotlyInteractionConfig(base = {}) {
+  const narrow = window.innerWidth < 640;
+  return {
+    responsive: true,
+    scrollZoom: true,
+    displaylogo: false,
+    ...(narrow ? { modeBarButtonsToRemove: ['lasso2d', 'select2d'] } : {}),
+    ...base
+  };
+}
+
+let _resizePlotsTimer;
+function scheduleResizePlots() {
+  clearTimeout(_resizePlotsTimer);
+  _resizePlotsTimer = setTimeout(() => {
+    ['diagnosticChart', 'analysisChart', 'residualChart', 'sensitivityChart'].forEach(id => {
+      const gd = document.getElementById(id);
+      if (gd && gd._fullData && gd._fullData.length) {
+        try { Plotly.Plots.resize(gd); } catch (e) { /* noop */ }
+      }
+    });
+    if (APP.leafletMap) {
+      try { APP.leafletMap.invalidateSize({ animate: false }); } catch (e) { /* noop */ }
+    }
+  }, 120);
 }
 
 // =============================================================================
@@ -3897,6 +3985,13 @@ document.addEventListener('DOMContentLoaded', function() {
   onSliderChange();
   onMethodChange();
   updateMapVisibility();
+
+  window.addEventListener('resize', scheduleResizePlots);
+  window.addEventListener('orientationchange', () => setTimeout(scheduleResizePlots, 280));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', scheduleResizePlots);
+  }
+  requestAnimationFrame(scheduleResizePlots);
 });
 </script>
 
