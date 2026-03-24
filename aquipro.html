@@ -385,7 +385,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
         </div>
         <div class="overflow-x-auto max-h-[400px] overflow-y-auto border rounded-lg dark:border-slate-600">
           <table class="data-table" id="dataTable">
-            <thead><tr><th style="width:40px">#</th><th>Time (min)</th><th>Drawdown (m)</th><th>Pump Rate (m³/day) <span class="tooltip-icon text-[.6rem]">?<span class="tooltip-text">Optional. Leave blank to use the constant Q from Project Setup. If any row has a value, the variable-rate schedule will be updated automatically.</span></span></th><th style="width:30px"></th></tr></thead>
+            <thead><tr><th style="width:40px">#</th><th>Time (min)</th><th>Drawdown (m)</th><th>Pump Rate (m³/day) <span class="tooltip-icon text-[.6rem]" onclick="toast('Optional — leave blank to use the constant Q from Project Setup. If any row has a value, the variable-rate schedule will be updated automatically.','info',5000)">?<span class="tooltip-text">Optional. Leave blank to use the constant Q from Project Setup. If any row has a value, the variable-rate schedule will be updated automatically.</span></span></th><th style="width:30px"></th></tr></thead>
             <tbody id="dataBody"></tbody>
           </table>
         </div>
@@ -3418,6 +3418,19 @@ function loadProjectJSON() {
 // EXAMPLE DATA
 // =============================================================================
 
+// Resets all result/diagnosis display panels to their empty-state defaults
+function _clearDisplayPanels() {
+  document.getElementById('sensitivityCard').classList.add('hidden');
+  ['analysisWellRow', 'diagWellRow'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.classList.add('hidden');
+  });
+  document.getElementById('diagnosisResult').innerHTML =
+    '<div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">' +
+    '<p class="text-xs text-amber-600 dark:text-amber-400">Load data and click Refresh to run diagnosis.</p></div>';
+  document.getElementById('resultsContent').innerHTML = '';
+  Plotly.react('residualChart', [], { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', margin: { t: 10, r: 10, b: 10, l: 10 } });
+}
+
 // Shared reset called before loading any example — clears previous data/results/UI
 function _resetForExample() {
   // APP state
@@ -3426,14 +3439,7 @@ function _resetForExample() {
   APP.recovery = []; APP.wellData = {}; APP.activeWell = '';
   APP._sensData = null;
 
-  // Hide sensitivity card
-  document.getElementById('sensitivityCard').classList.add('hidden');
-
-  // Reset analysis well selectors
-  ['analysisWellRow', 'diagWellRow'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
-  });
+  _clearDisplayPanels();
 
   // Collapse variable-rate UI
   document.getElementById('chkVarRate').checked = false;
@@ -3695,11 +3701,12 @@ function clearAllData() {
   APP.data = []; APP.processed = []; APP.results = {}; APP.allResults = [];
   APP.confidenceIntervals = null;
   APP.corrections = { skin: 0, KzKr: 1, ppCorr: 0 };
-  APP.rateSchedule = [];
-  APP.wellData = {};
-  APP.activeWell = '';
+  APP.rateSchedule = []; APP.recovery = [];
+  APP.wellData = {}; APP.activeWell = '';
+  APP._sensData = null;
   clearDataTable();
   syncWellSelector();
+  _clearDisplayPanels();
   toast('All data cleared', 'info');
 }
 
