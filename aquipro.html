@@ -329,6 +329,14 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
     <!-- Input Mode Selection -->
     <div class="lg:col-span-2 card">
       <div class="section-title">📥 Time-Drawdown Data</div>
+      <!-- Well Selector -->
+      <div class="flex items-center gap-3 mb-3 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
+        <label class="text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Entering data for:</label>
+        <select id="wellSelector" class="select-field text-xs flex-1" onchange="onWellSelectorChange()">
+          <option value="">— define wells in Project Setup —</option>
+        </select>
+        <button onclick="syncWellSelector()" class="btn btn-outline text-xs whitespace-nowrap" title="Re-read wells from Project Setup">↻ Sync</button>
+      </div>
       <div class="flex gap-2 mb-3">
         <button onclick="setDataMode('quick')" class="btn btn-outline text-xs data-mode-btn" data-mode="quick">⚡ Quick Entry</button>
         <button onclick="setDataMode('upload')" class="btn btn-outline text-xs data-mode-btn active" data-mode="upload">📁 Upload CSV/Excel</button>
@@ -372,7 +380,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
         </div>
         <div class="overflow-x-auto max-h-[400px] overflow-y-auto border rounded-lg dark:border-slate-600">
           <table class="data-table" id="dataTable">
-            <thead><tr><th style="width:40px">#</th><th>Time (min)</th><th>Drawdown (m)</th><th style="width:30px"></th></tr></thead>
+            <thead><tr><th style="width:40px">#</th><th>Time (min)</th><th>Drawdown (m)</th><th>Pump Rate (m³/day) <span class="tooltip-icon text-[.6rem]">?<span class="tooltip-text">Optional. Leave blank to use the constant Q from Project Setup. If any row has a value, the variable-rate schedule will be updated automatically.</span></span></th><th style="width:30px"></th></tr></thead>
             <tbody id="dataBody"></tbody>
           </table>
         </div>
@@ -693,7 +701,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
 // STATE MANAGEMENT
 // =============================================================================
 const APP = {
-  data: [],          // [{t, s}] raw time-drawdown
+  data: [],          // [{t, s, q?}] raw time-drawdown for the active well
   processed: [],     // after preprocessing
   recovery: [],      // [{tOverTp, sp}] recovery data
   results: {},       // {T, S, Sy, RMSE, R2, NSE, MAE, ROI, method}
@@ -708,6 +716,8 @@ const APP = {
   mapMarkers: { pw: null, ow: [], roi: null, contours: [], measure: [] },
   leafletMap: null,
   isDark: false,
+  wellData: {},      // { wellId: [{t, s, q?}] } — per-well data store
+  activeWell: '',    // currently selected well ID for data entry
 };
 
 // =============================================================================
@@ -753,6 +763,7 @@ function switchTab(name) {
   if (name === 'map') setTimeout(() => { updateMapVisibility(); if (APP.leafletMap) { APP.leafletMap.invalidateSize(); updateMapMarkers(); } }, 100);
   if (name === 'diagnostic') setTimeout(() => updateDiagnosticPlot(), 100);
   if (name === 'analysis') setTimeout(() => updateAnalysisPlot(), 100);
+  if (name === 'data') setTimeout(() => syncWellSelector(), 50);
 }
 
 // =============================================================================
@@ -908,15 +919,14 @@ function handleFile(file) {
   if (ext === 'csv') {
     Papa.parse(file, {
       header: true, dynamicTyping: true, skipEmptyLines: true,
-      complete: r => { importParsedData(r.data); toast('CSV imported: ' + r.data.length + ' rows', 'success'); }
+      complete: r => { showColumnMappingModal(r.data); }
     });
   } else if (['xlsx','xls'].includes(ext)) {
     const reader = new FileReader();
     reader.onload = e => {
       const wb = XLSX.read(e.target.result, { type: 'array' });
       const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      importParsedData(data);
-      toast('Excel imported: ' + data.length + ' rows', 'success');
+      showColumnMappingModal(data);
     };
     reader.readAsArrayBuffer(file);
   } else {
@@ -924,19 +934,66 @@ function handleFile(file) {
   }
 }
 
-function importParsedData(rows) {
-  APP.data = [];
-  const keys = Object.keys(rows[0] || {});
-  const tKey = keys.find(k => /time|t|min/i.test(k)) || keys[0];
-  const sKey = keys.find(k => /draw|s|dd/i.test(k)) || keys[1];
+function importParsedData(rows, mapping) {
+  if (!rows || !rows.length) { toast('File contains no data rows', 'error'); return; }
 
+  // Resolve mapping (may be called with a legacy auto-detect path)
+  let mapTime, mapDraw, mapLevel, mapWell, mapRate, staticWL_m = 0;
+  if (mapping) {
+    ({ mapTime, mapDraw, mapLevel, mapWell, mapRate, staticWL_m = 0 } = mapping);
+  } else {
+    const keys = Object.keys(rows[0] || {});
+    mapTime = keys.find(k => /time|t|min/i.test(k)) || keys[0];
+    mapDraw = keys.find(k => /draw|s|dd/i.test(k)) || keys[1];
+  }
+
+  // Group rows by well if a Well ID column was mapped
+  const wellGroups = {};
   rows.forEach(r => {
-    const t = parseFloat(r[tKey]);
-    const s = parseFloat(r[sKey]);
-    if (!isNaN(t) && !isNaN(s) && t > 0) APP.data.push({ t, s });
+    const t = parseFloat(r[mapTime]);
+    let s;
+    if (mapDraw && r[mapDraw] !== undefined && r[mapDraw] !== '') {
+      s = parseFloat(r[mapDraw]);
+    } else if (mapLevel && r[mapLevel] !== undefined && r[mapLevel] !== '') {
+      s = staticWL_m - parseFloat(r[mapLevel]); // level → drawdown
+    }
+    if (isNaN(t) || isNaN(s) || t <= 0) return;
+
+    const wellId = mapWell ? String(r[mapWell] || '').trim() : '__default__';
+    const qVal = (mapRate && r[mapRate] !== undefined && r[mapRate] !== '') ? parseFloat(r[mapRate]) : NaN;
+    const pt = { t, s };
+    if (!isNaN(qVal) && qVal > 0) pt.q = qVal / 86400; // m³/day → m³/s
+
+    if (!wellGroups[wellId]) wellGroups[wellId] = [];
+    wellGroups[wellId].push(pt);
   });
 
-  APP.data.sort((a, b) => a.t - b.t);
+  const wellIds = Object.keys(wellGroups);
+  if (!wellIds.length) { toast('No valid data rows found — check column mapping', 'error'); return; }
+
+  if (wellIds.length > 1 || (wellIds.length === 1 && wellIds[0] !== '__default__')) {
+    // Multi-well import: store each group in wellData keyed by the file's well ID
+    wellIds.forEach(wid => {
+      const sorted = wellGroups[wid].sort((a, b) => a.t - b.t);
+      APP.wellData[wid] = sorted;
+    });
+    // Activate first well from file
+    const firstId = wellIds[0];
+    APP.activeWell = firstId;
+    APP.data = [...(APP.wellData[firstId] || [])];
+    syncWellSelector();
+    toast(`Imported ${rows.length} rows across ${wellIds.length} wells`, 'success');
+  } else {
+    // Single-well import: load into the currently active well
+    const targetData = wellGroups['__default__'] || [];
+    APP.data = targetData.sort((a, b) => a.t - b.t);
+    const saveKey = APP.activeWell || (document.getElementById('pwID').value.trim() || 'PW-1');
+    if (!APP.activeWell) APP.activeWell = saveKey;
+    APP.wellData[saveKey] = [...APP.data];
+    toast('Imported ' + APP.data.length + ' rows for ' + saveKey, 'success');
+  }
+
+  buildRateScheduleFromData();
   populateDataTable();
   applyPreprocessing();
   updateDataStats();
@@ -955,6 +1012,7 @@ function parsePastedData() {
     }
   });
   APP.data.sort((a, b) => a.t - b.t);
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data];
   populateDataTable();
   applyPreprocessing();
   updateDataStats();
@@ -966,10 +1024,12 @@ function populateDataTable() {
   const body = document.getElementById('dataBody');
   body.innerHTML = '';
   APP.data.forEach((d, i) => {
+    const qDisplay = (d.q !== undefined && d.q > 0) ? (d.q * 86400).toFixed(4) : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="text-center text-slate-400 text-xs">${i+1}</td>
       <td><input type="number" step="any" value="${d.t}" onchange="updateDataFromTable()"></td>
       <td><input type="number" step="any" value="${d.s}" onchange="updateDataFromTable()"></td>
+      <td><input type="number" step="any" value="${qDisplay}" placeholder="—" onchange="updateDataFromTable()"></td>
       <td><button onclick="this.closest('tr').remove();updateDataFromTable()" class="text-red-400 hover:text-red-600 text-xs">✕</button></td>`;
     body.appendChild(tr);
   });
@@ -982,6 +1042,7 @@ function addDataRow() {
   tr.innerHTML = `<td class="text-center text-slate-400 text-xs">${i+1}</td>
     <td><input type="number" step="any" value="" onchange="updateDataFromTable()"></td>
     <td><input type="number" step="any" value="" onchange="updateDataFromTable()"></td>
+    <td><input type="number" step="any" value="" placeholder="—" onchange="updateDataFromTable()"></td>
     <td><button onclick="this.closest('tr').remove();updateDataFromTable()" class="text-red-400 hover:text-red-600 text-xs">✕</button></td>`;
   body.appendChild(tr);
 }
@@ -998,6 +1059,7 @@ function clearDataTable() {
   document.getElementById('dataBody').innerHTML = '';
   APP.data = [];
   APP.processed = [];
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [];
   updateDataStats();
 }
 
@@ -1008,9 +1070,16 @@ function updateDataFromTable() {
     const inputs = tr.querySelectorAll('input[type="number"]');
     const t = parseFloat(inputs[0]?.value);
     const s = parseFloat(inputs[1]?.value);
-    if (!isNaN(t) && !isNaN(s) && t > 0) APP.data.push({ t, s });
+    const qVal = parseFloat(inputs[2]?.value);
+    if (!isNaN(t) && !isNaN(s) && t > 0) {
+      const pt = { t, s };
+      if (!isNaN(qVal) && qVal > 0) pt.q = qVal / 86400; // store as m³/s
+      APP.data.push(pt);
+    }
   });
   APP.data.sort((a, b) => a.t - b.t);
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data];
+  buildRateScheduleFromData();
   applyPreprocessing();
   updateDataStats();
   autoSave();
@@ -1306,6 +1375,174 @@ function buildRateSchedule() {
 }
 
 // =============================================================================
+// WELL SELECTOR — Feature 1
+// =============================================================================
+function syncWellSelector() {
+  const sel = document.getElementById('wellSelector');
+  if (!sel) return;
+  const prev = APP.activeWell || sel.value;
+  sel.innerHTML = '';
+
+  // Pumping well
+  const pwId = (document.getElementById('pwID').value || '').trim() || 'PW-1';
+  const pwOpt = document.createElement('option');
+  pwOpt.value = pwId;
+  pwOpt.textContent = pwId + ' (Pumping Well)';
+  sel.appendChild(pwOpt);
+
+  // Observation wells
+  document.querySelectorAll('.obs-well-entry').forEach(entry => {
+    const id = (entry.querySelector('.obs-id').value || '').trim();
+    if (!id) return;
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id + ' (Obs. Well)';
+    sel.appendChild(opt);
+  });
+
+  // Restore previously active well if it still exists, else default to first
+  if (prev && Array.from(sel.options).some(o => o.value === prev)) {
+    sel.value = prev;
+  } else {
+    sel.value = sel.options[0]?.value || '';
+  }
+
+  // Sync APP state — if activeWell changed, load its data
+  const resolved = sel.value;
+  if (resolved && resolved !== APP.activeWell) {
+    if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data]; // save current
+    APP.activeWell = resolved;
+    APP.data = APP.wellData[resolved] ? [...APP.wellData[resolved]] : [];
+    populateDataTable();
+    applyPreprocessing();
+    updateDataStats();
+  } else if (!APP.activeWell && resolved) {
+    APP.activeWell = resolved;
+    if (!APP.wellData[resolved]) APP.wellData[resolved] = [];
+  }
+}
+
+function onWellSelectorChange() {
+  const sel = document.getElementById('wellSelector');
+  const newWell = sel.value;
+  if (!newWell || newWell === APP.activeWell) return;
+
+  // Save current data back to the well we're leaving
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data];
+
+  // Load data for newly selected well
+  APP.activeWell = newWell;
+  APP.data = APP.wellData[newWell] ? [...APP.wellData[newWell]] : [];
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  toast('Switched to ' + newWell, 'info', 1500);
+}
+
+// =============================================================================
+// COLUMN MAPPING MODAL — Feature 2
+// =============================================================================
+let _pendingImportRows = null;
+
+function showColumnMappingModal(rows) {
+  if (!rows || !rows.length) { toast('No data rows found in file', 'error'); return; }
+  _pendingImportRows = rows;
+
+  const keys = Object.keys(rows[0] || {});
+
+  // Show detected header chips
+  document.getElementById('detectedHeaders').innerHTML =
+    keys.map(k => `<span class="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs font-mono">${k}</span>`).join('');
+
+  // Build dropdown fields
+  const fields = [
+    { id: 'mapTime',   label: 'Time column',         required: true,  hint: 'min / hr',         regex: /time|^t$|^t_|_t$|min/i },
+    { id: 'mapDraw',   label: 'Drawdown column',      required: false, hint: 'm or ft',           regex: /draw|^dd$|^s$|^s_|_dd$/i },
+    { id: 'mapLevel',  label: 'Water Level column',   required: false, hint: 'alt. to drawdown',  regex: /level|^wl$|^wl_|head|depth/i },
+    { id: 'mapWellId', label: 'Well ID column',       required: false, hint: 'split multi-well',  regex: /well.*id|^well$|^id$|^name$/i },
+    { id: 'mapRate',   label: 'Pumping Rate column',  required: false, hint: 'm³/day',            regex: /rate|pump|^q$|^q_|_q$|flow/i },
+  ];
+
+  document.getElementById('mappingFields').innerHTML = fields.map(f => {
+    const autoMatch = keys.find(k => f.regex.test(k)) || '';
+    const opts = `<option value="">${f.required ? '— select column —' : '— none (skip) —'}</option>` +
+      keys.map(k => `<option value="${k}"${k === autoMatch ? ' selected' : ''}>${k}</option>`).join('');
+    const badge = f.required ? ' <span class="text-red-400">*</span>' : '';
+    return `<div class="flex items-center gap-2">
+      <label class="text-xs font-medium w-40 shrink-0">${f.label}${badge}</label>
+      <select id="${f.id}" class="select-field text-xs flex-1">${opts}</select>
+      <span class="text-[.6rem] text-slate-400 w-28 shrink-0 text-right">${f.hint}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('columnMappingModal').classList.remove('hidden');
+}
+
+function cancelColumnMapping() {
+  _pendingImportRows = null;
+  document.getElementById('columnMappingModal').classList.add('hidden');
+}
+
+function confirmColumnMapping() {
+  const mapTime  = document.getElementById('mapTime').value;
+  const mapDraw  = document.getElementById('mapDraw').value;
+  const mapLevel = document.getElementById('mapLevel').value;
+  const mapWell  = document.getElementById('mapWellId').value;
+  const mapRate  = document.getElementById('mapRate').value;
+
+  if (!mapTime) { toast('Please select the Time column', 'error'); return; }
+  if (!mapDraw && !mapLevel) { toast('Please select a Drawdown or Water Level column', 'error'); return; }
+
+  const staticWL = parseFloat(document.getElementById('staticWL').value) || 0;
+  const swlUnit  = document.getElementById('swlUnit').value;
+  const staticWL_m = staticWL * (UNITS.length[swlUnit] || 1);
+
+  const rows = _pendingImportRows;
+  cancelColumnMapping(); // hide modal and clear buffer
+  importParsedData(rows, { mapTime, mapDraw, mapLevel, mapWell, mapRate, staticWL_m });
+}
+
+// =============================================================================
+// BUILD RATE SCHEDULE FROM DATA — Feature 3
+// =============================================================================
+function buildRateScheduleFromData() {
+  const pointsWithQ = APP.data.filter(d => d.q !== undefined && d.q > 0);
+  if (!pointsWithQ.length) return; // nothing to do — keep existing schedule
+
+  // Extract rate-change events: emit a new entry only when Q changes
+  const schedule = [];
+  let lastQ = null;
+  APP.data.forEach(d => {
+    if (d.q !== undefined && d.q !== lastQ) {
+      schedule.push({ time: d.t, q_m3s: d.q });
+      lastQ = d.q;
+    }
+  });
+  if (!schedule.length) return;
+
+  // Ensure schedule starts at t = 0
+  if (schedule[0].time > 0) schedule.unshift({ time: 0, q_m3s: schedule[0].q_m3s });
+  APP.rateSchedule = schedule;
+
+  // Sync the Project Setup rate schedule UI
+  const container = document.getElementById('rateRows');
+  container.innerHTML = `<div class="flex gap-1 rate-row"><input type="number" class="input-field rate-time" value="0" step="any" style="width:44%" readonly><input type="number" class="input-field rate-q" value="${(schedule[0].q_m3s * 86400).toFixed(4)}" step="any" style="width:44%" oninput="buildRateSchedule()"><span style="width:12%"></span></div>`;
+  for (let i = 1; i < schedule.length; i++) {
+    const div = document.createElement('div');
+    div.className = 'flex gap-1 rate-row';
+    div.innerHTML = `<input type="number" class="input-field rate-time" value="${schedule[i].time}" step="any" style="width:44%"><input type="number" class="input-field rate-q" value="${(schedule[i].q_m3s * 86400).toFixed(4)}" step="any" style="width:44%" oninput="buildRateSchedule()"><button onclick="this.parentElement.remove();buildRateSchedule()" class="text-red-400 text-xs" style="width:12%">✕</button>`;
+    container.appendChild(div);
+  }
+
+  // Auto-enable the variable rate checkbox if schedule has more than one step
+  if (schedule.length > 1) {
+    document.getElementById('chkVarRate').checked = true;
+    document.getElementById('rateSchedulePanel').classList.remove('hidden');
+    toast('Variable pumping rate schedule detected and imported (' + schedule.length + ' steps)', 'success');
+  }
+}
+
+// =============================================================================
 // COMPUTE THEORETICAL — with superposition, skin & partial penetration
 // =============================================================================
 function computeTheoreticalSingle(t_min, method, params, Q) {
@@ -1334,7 +1571,10 @@ function computeTheoreticalSingle(t_min, method, params, Q) {
       return neumanDrawdownRigorous(t_min, Q, T, S, Sy || 0.1, r, APP.corrections.KzKr, b);
     }
     case 'recovery': {
-      return (Q / (4 * Math.PI * T_m2s)) * wellFunctionW((r * r * S) / (4 * T_m2s * t_s));
+      // Cooper-Jacob recovery: s' = Q/(4πT) × ln(t/t')
+      // t_min here is the Horner time ratio t/t' (not actual time)
+      if (t_min <= 1) return 0;
+      return (Q / (4 * Math.PI * T_m2s)) * Math.log(t_min);
     }
     case 'theis-boundary': {
       return computeImageWellSingle(t_min, params, Q);
@@ -1601,6 +1841,7 @@ function parseQuickEntry() {
   if (!tLines.length || !sLines.length) { toast('Enter values in both columns', 'warning'); return; }
   if (tLines.length !== sLines.length) { toast(`Mismatch: ${tLines.length} time values vs ${sLines.length} drawdown values`, 'error'); return; }
   APP.data = tLines.map((t, i) => ({ t, s: sLines[i] })).filter(d => d.t > 0).sort((a,b) => a.t - b.t);
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data];
   populateDataTable();
   applyPreprocessing();
   updateDataStats();
@@ -1910,10 +2151,10 @@ function getCurrentParams() {
 }
 
 function autoFit() {
-  const data = APP.processed.length ? APP.processed : APP.data;
-  if (data.length < 3) { toast('Need at least 3 data points', 'warning'); return; }
-
   const method = document.getElementById('analysisMethod').value;
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (method !== 'recovery' && data.length < 3) { toast('Need at least 3 data points', 'warning'); return; }
+
   const btn = document.getElementById('autoFitBtn');
   btn.innerHTML = '<span class="spinner"></span> Fitting...';
   btn.disabled = true;
@@ -1924,6 +2165,20 @@ function autoFit() {
   setTimeout(() => {
     try {
       const p = getCurrentParams();
+
+      // Recovery uses APP.recovery data and only fits T
+      if (method === 'recovery') {
+        if (!APP.recovery.length) { toast('Extract recovery data first (Data Entry → Extract Recovery Phase)', 'warning'); return; }
+        const rData = APP.recovery.map(d => ({ t: d.tOverTp, s: d.sp }));
+        const tightS = Math.max(p.S, 1e-10);
+        const result = levenbergMarquardt(rData, 'recovery', [p.T, tightS], [[0.01, 1e6], [tightS * 0.9999, tightS * 1.0001]]);
+        document.getElementById('sliderT').value = Math.log10(result[0]);
+        APP.confidenceIntervals = null;
+        onSliderChange();
+        toast('Recovery auto-fit complete — T = ' + result[0].toFixed(2) + ' m²/day', 'success');
+        return;
+      }
+
       let initial, bounds;
 
       if (method === 'neuman') {
@@ -1970,6 +2225,7 @@ function updateResults() {
 
   const method = document.getElementById('analysisMethod').value;
   if (method === 'step-drawdown' || method === 'distance-dd') return;
+  if (method === 'recovery') { updateRecoveryPlot(getCurrentParams()); return; }
   const params = getCurrentParams();
   const predicted = data.map(d => computeTheoretical(d.t, method, params));
   const observed = data.map(d => d.s);
@@ -2048,6 +2304,116 @@ function updateResults() {
   autoSave();
 }
 
+// =============================================================================
+// RECOVERY ANALYSIS PLOT (Theis Recovery — Cooper-Jacob)
+// =============================================================================
+function updateRecoveryPlot(params) {
+  const isDark = APP.isDark;
+  const noDataMsg = `
+    <div class="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs text-amber-700 dark:text-amber-400">
+      No recovery data. Go to <strong>Data Entry → Preprocessing</strong>, enter the pump-off time, and click <em>Extract Recovery Phase</em>.
+    </div>`;
+
+  if (!APP.recovery.length) {
+    Plotly.react('analysisChart', [], {
+      paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+      annotations: [{ text: "No recovery data extracted yet.", showarrow: false, xref: 'paper', yref: 'paper', x: 0.5, y: 0.5, font: { size: 14, color: isDark ? '#94a3b8' : '#64748b' } }],
+      margin: { t: 40, r: 20, b: 40, l: 60 }
+    });
+    document.getElementById('resultsContent').innerHTML = noDataMsg;
+    return;
+  }
+
+  const Q = getQ_m3s();
+  const rData = APP.recovery; // [{tOverTp, sp}]
+
+  // Build theoretical curve over the observed t/t' range
+  const ratios = rData.map(d => d.tOverTp);
+  const logMin = Math.log10(Math.max(Math.min(...ratios), 1.001)) - 0.1;
+  const logMax = Math.log10(Math.max(...ratios)) + 0.1;
+  const theoryX = [], theoryY = [];
+  for (let i = 0; i <= 150; i++) {
+    const ratio = Math.pow(10, logMin + (logMax - logMin) * i / 150);
+    const s = computeTheoreticalSingle(ratio, 'recovery', params, Q);
+    if (s >= 0) { theoryX.push(ratio); theoryY.push(s); }
+  }
+
+  const traces = [
+    {
+      x: rData.map(d => d.tOverTp), y: rData.map(d => d.sp),
+      mode: 'markers', type: 'scatter', name: "Observed s'",
+      marker: { color: '#3b82f6', size: 7, symbol: 'circle', line: { width: 1, color: '#1d4ed8' } }
+    },
+    {
+      x: theoryX, y: theoryY,
+      mode: 'lines', type: 'scatter', name: 'Theis Recovery (Cooper-Jacob)',
+      line: { color: '#ef4444', width: 2.5 }
+    }
+  ];
+
+  const layout = {
+    xaxis: { title: "Horner Time Ratio  t / t'", type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: "Residual Drawdown  s' (m)", gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(0,0,0,0)' },
+    margin: { t: 30, r: 20, b: 50, l: 60 },
+    hovermode: 'closest'
+  };
+  Plotly.react('analysisChart', traces, layout, { responsive: true, displayModeBar: true });
+
+  // Residuals
+  const predicted = rData.map(d => computeTheoreticalSingle(d.tOverTp, 'recovery', params, Q));
+  const observed  = rData.map(d => d.sp);
+  const residuals = observed.map((o, i) => o - predicted[i]);
+  Plotly.react('residualChart', [{
+    x: rData.map(d => d.tOverTp), y: residuals,
+    type: 'bar', marker: { color: residuals.map(r => r >= 0 ? '#3b82f6' : '#ef4444') }
+  }], {
+    xaxis: { title: "t / t'", type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'Residual (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569', zeroline: true, zerolinecolor: isDark ? '#64748b' : '#94a3b8' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    margin: { t: 10, r: 20, b: 40, l: 60 }, showlegend: false
+  }, { responsive: true, displayModeBar: false });
+
+  // Results
+  const metrics = computeMetrics(observed, predicted);
+  const T = params.T;
+  APP.results = { T, S: params.S, ...metrics, method: 'recovery' };
+
+  document.getElementById('liveT').textContent = 'T: ' + (T < 1 ? T.toExponential(2) : T.toFixed(1)) + ' m²/d';
+  document.getElementById('liveT').classList.remove('hidden');
+  document.getElementById('liveS').classList.add('hidden');
+  document.getElementById('liveMethod').textContent = 'recovery';
+  document.getElementById('liveMethod').classList.remove('hidden');
+
+  document.getElementById('resultsContent').innerHTML = `
+    <div class="grid grid-cols-2 gap-2">
+      <div class="p-2 rounded bg-blue-50 dark:bg-blue-900/20 col-span-2">
+        <div class="text-[.6rem] text-slate-400">Transmissivity (T) — from recovery slope</div>
+        <div class="font-bold text-sm text-blue-600 dark:text-blue-400">${T < 1 ? T.toExponential(3) : T.toFixed(2)} m²/day</div>
+      </div>
+    </div>
+    <div class="mt-2 p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs text-amber-700 dark:text-amber-400">
+      S cannot be independently determined from recovery data with this method.
+    </div>
+    <div class="mt-2 p-2 rounded bg-slate-50 dark:bg-slate-800">
+      <div class="text-[.6rem] text-slate-400 mb-1">Goodness of Fit (${rData.length} recovery points)</div>
+      <div class="grid grid-cols-2 gap-1 text-xs">
+        <div>RMSE: <span class="font-mono font-bold ${metrics.RMSE < 0.1 ? 'text-green-600' : 'text-amber-600'}">${metrics.RMSE.toFixed(4)}</span></div>
+        <div>R²: <span class="font-mono font-bold ${metrics.R2 > 0.95 ? 'text-green-600' : 'text-amber-600'}">${metrics.R2.toFixed(4)}</span></div>
+        <div>NSE: <span class="font-mono font-bold">${metrics.NSE.toFixed(4)}</span></div>
+        <div>MAE: <span class="font-mono font-bold">${metrics.MAE.toFixed(4)}</span></div>
+      </div>
+    </div>`;
+
+  const existing = APP.allResults.findIndex(r => r.method === 'recovery');
+  if (existing >= 0) APP.allResults[existing] = { ...APP.results };
+  else APP.allResults.push({ ...APP.results });
+  autoSave();
+}
+
 function updateAnalysisPlot() {
   const data = APP.processed.length ? APP.processed : APP.data;
   if (!data.length) {
@@ -2057,6 +2423,7 @@ function updateAnalysisPlot() {
 
   const method = document.getElementById('analysisMethod').value;
   if (method === 'step-drawdown' || method === 'distance-dd') return;
+  if (method === 'recovery') { updateRecoveryPlot(getCurrentParams()); return; }
   const params = getCurrentParams();
 
   // Generate theoretical curve with more points
@@ -2089,15 +2456,17 @@ function updateAnalysisPlot() {
     }
   ];
 
-  // Derivative overlay
-  const deriv = computeSmoothedDerivative(data, 0.3);
+  // Derivative overlay — use same L value as the diagnostic plot slider
+  const derivLEl = document.getElementById('derivL');
+  const derivL = derivLEl ? parseFloat(derivLEl.value) || 0.3 : 0.3;
+  const deriv = computeSmoothedDerivative(data, derivL);
   if (deriv.length > 2) {
     traces.push({
       x: deriv.map(d => d.t), y: deriv.map(d => d.d),
       mode: 'lines+markers', type: 'scatter', name: 'Derivative',
       marker: { color: '#10b981', size: 4, symbol: 'diamond' },
       line: { color: '#10b981', width: 1.5, dash: 'dot' },
-      yaxis: APP.axisMode === 'loglog' ? 'y' : 'y'
+      yaxis: 'y'
     });
   }
 
@@ -2203,25 +2572,60 @@ function runSensitivity() {
   if (!data.length || !APP.results.T) { toast('Run analysis first', 'warning'); return; }
 
   const method = document.getElementById('analysisMethod').value;
-  const baseT = APP.results.T, baseS = APP.results.S;
   const params = getCurrentParams();
+  const baseT  = APP.results.T  || params.T;
+  const baseS  = APP.results.S  || params.S;
+  const baseSy = APP.results.Sy || params.Sy;
+  const baseRB = params.rOverB;
   const variations = [-50, -25, -10, 10, 25, 50];
   const isDark = APP.isDark;
+  const tAxis = data.map(d => d.t);
+
+  // Helper to build a group of variation traces
+  function variationTraces(paramKey, baseVal, label, colorNeg, colorPos, legendOnly) {
+    return variations.map(pct => ({
+      x: tAxis,
+      y: tAxis.map(t => computeTheoretical(t, method, { ...params, [paramKey]: baseVal * (1 + pct / 100) })),
+      mode: 'lines', type: 'scatter',
+      name: `${label} ${pct > 0 ? '+' : ''}${pct}%`,
+      line: { width: 1.5, dash: pct < 0 ? 'dash' : 'solid', color: pct < 0 ? colorNeg : colorPos },
+      opacity: 0.45 + Math.abs(pct) / 110,
+      visible: legendOnly ? 'legendonly' : true,
+      legendgroup: label
+    }));
+  }
 
   const traces = [];
-  // Base trace
-  const theoryT = data.map(d => d.t);
 
-  variations.forEach(pct => {
-    // T variation
-    const T2 = baseT * (1 + pct/100);
-    const sT = theoryT.map(t => computeTheoretical(t, method, { ...params, T: T2 }));
-    traces.push({
-      x: theoryT, y: sT, mode: 'lines', name: `T ${pct > 0 ? '+' : ''}${pct}%`,
-      line: { width: 1.5, dash: pct < 0 ? 'dash' : 'solid', color: pct < 0 ? '#ef4444' : '#3b82f6' },
-      opacity: 0.5 + Math.abs(pct)/100
-    });
+  // Observed data
+  traces.push({
+    x: data.map(d => d.t), y: data.map(d => d.s),
+    mode: 'markers', type: 'scatter', name: 'Observed',
+    marker: { color: '#64748b', size: 5, symbol: 'circle' }
   });
+
+  // Best-fit curve
+  traces.push({
+    x: tAxis, y: tAxis.map(t => computeTheoretical(t, method, params)),
+    mode: 'lines', type: 'scatter', name: 'Best fit',
+    line: { width: 2.5, color: APP.isDark ? '#e2e8f0' : '#1e293b' }
+  });
+
+  // T variations — shown by default
+  traces.push(...variationTraces('T',      baseT,  'T',   '#ef4444', '#3b82f6', false));
+  // S variations — shown by default
+  traces.push(...variationTraces('S',      baseS,  'S',   '#f97316', '#10b981', false));
+  // Sy — Neuman only, toggle in legend
+  if (method === 'neuman' && baseSy > 0) {
+    traces.push(...variationTraces('Sy',   baseSy, 'Sy',  '#a78bfa', '#34d399', true));
+  }
+  // r/B — Hantush only, toggle in legend
+  if (method === 'hantush' && baseRB > 0) {
+    traces.push(...variationTraces('rOverB', baseRB, 'r/B', '#f472b6', '#22d3ee', true));
+  }
+
+  const paramNote = method === 'neuman'   ? ' · Sy in legend' :
+                    method === 'hantush'  ? ' · r/B in legend' : '';
 
   document.getElementById('sensitivityCard').classList.remove('hidden');
   Plotly.react('sensitivityChart', traces, {
@@ -2229,9 +2633,9 @@ function runSensitivity() {
     yaxis: { title: 'Drawdown (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    legend: { x: 1, y: 1, xanchor: 'right' },
-    margin: { t: 20, r: 20, b: 50, l: 60 },
-    title: { text: 'Sensitivity: T variation', font: { size: 13 } }
+    legend: { x: 1, y: 1, xanchor: 'right', bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
+    margin: { t: 36, r: 20, b: 50, l: 60 },
+    title: { text: `Parameter Sensitivity — T & S (±10, 25, 50%)${paramNote}`, font: { size: 12 } }
   }, { responsive: true });
 
   toast('Sensitivity analysis complete', 'success');
@@ -2688,6 +3092,8 @@ function gatherState() {
     pwID: document.getElementById('pwID').value,
     pwDepth: document.getElementById('pwDepth').value,
     data: APP.data,
+    wellData: APP.wellData,
+    activeWell: APP.activeWell,
     results: APP.results,
     allResults: APP.allResults,
     method: document.getElementById('analysisMethod')?.value,
@@ -2716,6 +3122,8 @@ function restoreState(state) {
 
   document.getElementById('projectNameToolbar').value = state.projectName || 'Untitled Project';
 
+  if (state.wellData) APP.wellData = state.wellData;
+  if (state.activeWell) APP.activeWell = state.activeWell;
   if (state.data) { APP.data = state.data; populateDataTable(); applyPreprocessing(); updateDataStats(); }
   if (state.results) APP.results = state.results;
   if (state.allResults) APP.allResults = state.allResults;
@@ -2847,9 +3255,12 @@ function loadExampleData() {
     {t:4320,s:3.53}
   ];
 
+  APP.activeWell = 'PW-Springfield';
+  APP.wellData = { 'PW-Springfield': [...APP.data] };
   populateDataTable();
   applyPreprocessing();
   updateDataStats();
+  syncWellSelector();
   onCoordsChange();
 
   // Set reasonable initial slider values
@@ -2873,7 +3284,10 @@ function clearAllData() {
   APP.confidenceIntervals = null;
   APP.corrections = { skin: 0, KzKr: 1, ppCorr: 0 };
   APP.rateSchedule = [];
+  APP.wellData = {};
+  APP.activeWell = '';
   clearDataTable();
+  syncWellSelector();
   toast('All data cleared', 'info');
 }
 
@@ -2977,6 +3391,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   } catch(e) { /* no saved state */ }
 
+  // Initialize well selector
+  syncWellSelector();
+
   // Initial slider display
   updateCorrections();
   onSliderChange();
@@ -2984,5 +3401,29 @@ document.addEventListener('DOMContentLoaded', function() {
   updateMapVisibility();
 });
 </script>
+
+<!-- ===== COLUMN MAPPING MODAL ===== -->
+<div id="columnMappingModal" class="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center hidden" onclick="if(event.target===this)cancelColumnMapping()">
+  <div class="card bg-white dark:bg-slate-900 w-full max-w-lg mx-4 shadow-2xl space-y-4" style="padding:1.5rem">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base font-bold">Map File Columns</h3>
+      <button onclick="cancelColumnMapping()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
+    </div>
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+      Your file was parsed. Map each column to its meaning before importing.
+      <strong>Time</strong> is required. Provide either <strong>Drawdown</strong> or <strong>Water Level</strong> (drawdown will be computed from Static WL in Project Setup).
+    </p>
+    <div>
+      <div class="text-[.65rem] font-semibold text-slate-400 uppercase tracking-wide mb-2">Detected Columns</div>
+      <div id="detectedHeaders" class="flex flex-wrap gap-1"></div>
+    </div>
+    <div class="space-y-2" id="mappingFields"></div>
+    <div class="flex gap-3 justify-end pt-2 border-t border-slate-200 dark:border-slate-700">
+      <button onclick="cancelColumnMapping()" class="btn btn-outline text-xs">Cancel</button>
+      <button onclick="confirmColumnMapping()" class="btn btn-primary text-xs">Import Data</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
