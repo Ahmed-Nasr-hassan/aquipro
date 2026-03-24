@@ -43,6 +43,7 @@ body{font-family:'Inter',system-ui,sans-serif;transition:background .3s,color .3
 .btn-primary{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}.btn-primary:hover{box-shadow:0 4px 12px rgba(59,130,246,.4);transform:translateY(-1px)}
 .btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff}.btn-success:hover{box-shadow:0 4px 12px rgba(16,185,129,.4)}
 .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.btn-purple{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff}.btn-purple:hover{box-shadow:0 4px 12px rgba(139,92,246,.4);transform:translateY(-1px)}
 .btn-outline{border:1px solid #cbd5e1;background:transparent;color:#475569}.btn-outline:hover{border-color:#3b82f6;color:#3b82f6}
 .dark .btn-outline{border-color:#475569;color:#94a3b8}.dark .btn-outline:hover{border-color:#60a5fa;color:#60a5fa}
 .select-field{padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.8125rem;background:transparent;cursor:pointer}
@@ -319,7 +320,7 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       Load Example Dataset
     </button>
-    <button onclick="loadAdvancedExampleData()" class="btn btn-outline" title="Multi-well · Variable rate · Neuman unconfined · Recovery">
+    <button onclick="loadAdvancedExampleData()" class="btn btn-purple" title="Multi-well · Variable rate · Neuman unconfined · Recovery">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
       Advanced Example
     </button>
@@ -608,8 +609,11 @@ label{font-size:.75rem;font-weight:500;color:#64748b;margin-bottom:.25rem;displa
         <div id="residualChart" style="width:100%;height:180px;"></div>
       </div>
       <div id="sensitivityCard" class="card hidden">
-        <div class="section-title text-sm">📊 Sensitivity Analysis</div>
-        <div id="sensitivityChart" style="width:100%;height:300px;"></div>
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div class="section-title text-sm mb-0">📊 Parameter Sensitivity</div>
+          <div id="sensitivityTabs" class="flex gap-1.5 flex-wrap"></div>
+        </div>
+        <div id="sensitivityChart" style="width:100%;height:320px;"></div>
       </div>
     </div>
   </div>
@@ -2581,68 +2585,136 @@ function runSensitivity() {
   const baseS  = APP.results.S  || params.S;
   const baseSy = APP.results.Sy || params.Sy;
   const baseRB = params.rOverB;
-  const variations = [-50, -25, -10, 10, 25, 50];
-  const isDark = APP.isDark;
-  const tAxis = data.map(d => d.t);
+  const pcts   = [-50, -25, -10, 10, 25, 50];
+  const tAxis  = data.map(d => d.t);
 
-  // Helper to build a group of variation traces
-  function variationTraces(paramKey, baseVal, label, colorNeg, colorPos, legendOnly) {
-    return variations.map(pct => ({
-      x: tAxis,
-      y: tAxis.map(t => computeTheoretical(t, method, { ...params, [paramKey]: baseVal * (1 + pct / 100) })),
-      mode: 'lines', type: 'scatter',
-      name: `${label} ${pct > 0 ? '+' : ''}${pct}%`,
-      line: { width: 1.5, dash: pct < 0 ? 'dash' : 'solid', color: pct < 0 ? colorNeg : colorPos },
-      opacity: 0.45 + Math.abs(pct) / 110,
-      visible: legendOnly ? 'legendonly' : true,
-      legendgroup: label
+  function buildVariants(paramKey, baseVal) {
+    return pcts.map(pct => ({
+      pct,
+      ys: tAxis.map(t => computeTheoretical(t, method, { ...params, [paramKey]: baseVal * (1 + pct / 100) }))
     }));
   }
 
+  const paramDefs = [
+    { key: 'T',      base: baseT,  label: 'T',   show: true,
+      negRgb: [239,68,68],   posRgb: [59,130,246]  },
+    { key: 'S',      base: baseS,  label: 'S',   show: true,
+      negRgb: [249,115,22],  posRgb: [16,185,129]  },
+    { key: 'Sy',     base: baseSy, label: 'Sy',  show: method === 'neuman' && baseSy > 0,
+      negRgb: [167,139,250], posRgb: [52,211,153]  },
+    { key: 'rOverB', base: baseRB, label: 'r/B', show: method === 'hantush' && baseRB > 0,
+      negRgb: [244,114,182], posRgb: [34,211,238]  },
+  ].filter(p => p.show);
+
+  APP._sensData = {
+    tAxis,
+    observed: { x: data.map(d => d.t), y: data.map(d => d.s) },
+    bestFit:  tAxis.map(t => computeTheoretical(t, method, params)),
+    params:   paramDefs.map(p => ({ ...p, variants: buildVariants(p.key, p.base) })),
+    isDark:   APP.isDark
+  };
+
+  document.getElementById('sensitivityCard').classList.remove('hidden');
+
+  // Render pill-tab buttons (parameter name + best-fit value)
+  document.getElementById('sensitivityTabs').innerHTML = APP._sensData.params.map((p, i) =>
+    `<button id="sensTab_${p.key}" onclick="renderSensParam('${p.key}')"
+      class="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold border transition-all ${
+        i === 0
+          ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+          : 'bg-transparent border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400'
+      }"
+    >${p.label} <span class="opacity-70 font-normal">${_fmtSensVal(p.key, p.base)}</span></button>`
+  ).join('');
+
+  if (APP._sensData.params.length) renderSensParam(APP._sensData.params[0].key);
+  toast('Sensitivity analysis complete', 'success');
+}
+
+function _fmtSensVal(key, val) {
+  if (key === 'T')      return val >= 10 ? `${Math.round(val)} m\u00b2/d` : `${val.toFixed(1)} m\u00b2/d`;
+  if (key === 'S')      return val.toExponential(1);
+  if (key === 'Sy')     return val.toFixed(3);
+  if (key === 'rOverB') return val.toFixed(3);
+  return val.toPrecision(3);
+}
+
+function renderSensParam(paramKey) {
+  const sd = APP._sensData;
+  if (!sd || !sd.params) return;
+  const p = sd.params.find(x => x.key === paramKey);
+  if (!p) return;
+  const isDark = sd.isDark;
+  const rc = (rgb, a) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+
+  // Update pill active state
+  sd.params.forEach(x => {
+    const btn = document.getElementById('sensTab_' + x.key);
+    if (!btn) return;
+    btn.className = `px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold border transition-all ${
+      x.key === paramKey
+        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+        : 'bg-transparent border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400'
+    }`;
+  });
+
+  // Variation groups sorted by magnitude
+  const negV = p.variants.filter(v => v.pct < 0).sort((a,b) => a.pct - b.pct); // -50,-25,-10
+  const posV = p.variants.filter(v => v.pct > 0).sort((a,b) => a.pct - b.pct); // +10,+25,+50
+
   const traces = [];
+
+  // Shaded envelope between ±50% extremes
+  const loY = sd.tAxis.map((_,i) => Math.min(...p.variants.map(v => v.ys[i])));
+  const hiY = sd.tAxis.map((_,i) => Math.max(...p.variants.map(v => v.ys[i])));
+  traces.push({
+    x: [...sd.tAxis, ...sd.tAxis.slice().reverse()],
+    y: [...hiY,      ...loY.slice().reverse()],
+    fill: 'toself', mode: 'none', type: 'scatter', hoverinfo: 'skip', showlegend: false,
+    fillcolor: isDark ? 'rgba(100,116,139,0.10)' : 'rgba(148,163,184,0.14)'
+  });
+
+  // Negative variations: ±50% darkest → ±10% lightest, dashed warm colour
+  [0.80, 0.50, 0.25].forEach((a, i) => traces.push({
+    x: sd.tAxis, y: negV[i].ys, mode: 'lines', type: 'scatter',
+    name: `${p.label} ${negV[i].pct}%`,
+    line: { width: 1.5, dash: 'dash', color: rc(p.negRgb, a) }
+  }));
+
+  // Positive variations: ±10% lightest → ±50% darkest, solid cool colour
+  [0.25, 0.50, 0.80].forEach((a, i) => traces.push({
+    x: sd.tAxis, y: posV[i].ys, mode: 'lines', type: 'scatter',
+    name: `${p.label} +${posV[i].pct}%`,
+    line: { width: 1.5, dash: 'solid', color: rc(p.posRgb, a) }
+  }));
+
+  // Best-fit reference (prominent)
+  traces.push({
+    x: sd.tAxis, y: sd.bestFit, mode: 'lines', type: 'scatter', name: 'Best fit',
+    line: { width: 2.5, color: isDark ? '#f1f5f9' : '#0f172a' }
+  });
 
   // Observed data
   traces.push({
-    x: data.map(d => d.t), y: data.map(d => d.s),
-    mode: 'markers', type: 'scatter', name: 'Observed',
-    marker: { color: '#64748b', size: 5, symbol: 'circle' }
+    x: sd.observed.x, y: sd.observed.y, mode: 'markers', type: 'scatter', name: 'Observed',
+    marker: { color: '#64748b', size: 5, symbol: 'circle-open', line: { width: 1.5 } }
   });
 
-  // Best-fit curve
-  traces.push({
-    x: tAxis, y: tAxis.map(t => computeTheoretical(t, method, params)),
-    mode: 'lines', type: 'scatter', name: 'Best fit',
-    line: { width: 2.5, color: APP.isDark ? '#e2e8f0' : '#1e293b' }
-  });
-
-  // T variations — shown by default
-  traces.push(...variationTraces('T',      baseT,  'T',   '#ef4444', '#3b82f6', false));
-  // S variations — shown by default
-  traces.push(...variationTraces('S',      baseS,  'S',   '#f97316', '#10b981', false));
-  // Sy — Neuman only, toggle in legend
-  if (method === 'neuman' && baseSy > 0) {
-    traces.push(...variationTraces('Sy',   baseSy, 'Sy',  '#a78bfa', '#34d399', true));
-  }
-  // r/B — Hantush only, toggle in legend
-  if (method === 'hantush' && baseRB > 0) {
-    traces.push(...variationTraces('rOverB', baseRB, 'r/B', '#f472b6', '#22d3ee', true));
-  }
-
-  const paramNote = method === 'neuman'   ? ' · Sy in legend' :
-                    method === 'hantush'  ? ' · r/B in legend' : '';
-
-  document.getElementById('sensitivityCard').classList.remove('hidden');
   Plotly.react('sensitivityChart', traces, {
-    xaxis: { title: 'Time (min)', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
-    yaxis: { title: 'Drawdown (m)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    xaxis: { title: 'Time (min)', type: 'log',
+             gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569',
+             linecolor: isDark ? '#475569' : '#cbd5e1' },
+    yaxis: { title: 'Drawdown (m)',
+             gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569',
+             linecolor: isDark ? '#475569' : '#cbd5e1' },
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
-    legend: { x: 1, y: 1, xanchor: 'right', bgcolor: 'rgba(0,0,0,0)', font: { size: 10 } },
-    margin: { t: 36, r: 20, b: 50, l: 60 },
-    title: { text: `Parameter Sensitivity — T & S (±10, 25, 50%)${paramNote}`, font: { size: 12 } }
+    legend: { x: 1, y: 1, xanchor: 'right', yanchor: 'top',
+              bgcolor: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.7)',
+              bordercolor: isDark ? '#334155' : '#e2e8f0', borderwidth: 1,
+              font: { size: 10 } },
+    margin: { t: 10, r: 20, b: 50, l: 60 },
   }, { responsive: true });
-
-  toast('Sensitivity analysis complete', 'success');
 }
 
 // =============================================================================
