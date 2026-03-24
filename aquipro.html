@@ -1804,56 +1804,132 @@ function computeSmoothedDerivative(data, L) {
 // =============================================================================
 // DIAGNOSTIC ANALYSIS — pattern recognition
 // =============================================================================
-function diagnoseAquifer(deriv) {
-  if (deriv.length < 5) return { type: 'unknown', confidence: 0, message: 'Insufficient data for diagnosis.' };
+const DIAGNOSIS_STYLES = {
+  confined: {
+    card: 'p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700',
+    dot: 'inline-block w-2 h-2 rounded-full bg-blue-500',
+    title: 'text-sm font-bold text-blue-700 dark:text-blue-400 uppercase'
+  },
+  unconfined: {
+    card: 'p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700',
+    dot: 'inline-block w-2 h-2 rounded-full bg-green-500',
+    title: 'text-sm font-bold text-green-700 dark:text-green-400 uppercase'
+  },
+  leaky: {
+    card: 'p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700',
+    dot: 'inline-block w-2 h-2 rounded-full bg-purple-500',
+    title: 'text-sm font-bold text-purple-700 dark:text-purple-400 uppercase'
+  },
+  barrier: {
+    card: 'p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700',
+    dot: 'inline-block w-2 h-2 rounded-full bg-red-500',
+    title: 'text-sm font-bold text-red-700 dark:text-red-400 uppercase'
+  },
+  unknown: {
+    card: 'p-3 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-600',
+    dot: 'inline-block w-2 h-2 rounded-full bg-slate-500',
+    title: 'text-sm font-bold text-slate-700 dark:text-slate-300 uppercase'
+  }
+};
 
-  // Remove derivative spikes caused by rate changes or data artifacts before classifying.
-  // Values beyond 6× the median are outliers (unit-slope WBS points are kept — they are ≤ 3× median).
+function diagnoseAquifer(deriv) {
+  const insufficient = { type: 'unknown', confidence: 0, message: 'Insufficient data for diagnosis.', recommended: null };
+
+  if (deriv.length < 5) return insufficient;
+
+  // Remove derivative spikes from rate changes or artifacts (8× median keeps more late-time highs than 6×).
   const dVals   = deriv.map(p => p.d).sort((a, b) => a - b);
   const medianD = dVals[Math.floor(dVals.length / 2)];
-  const clean   = deriv.filter(p => p.d <= medianD * 6);
-  if (clean.length < 5) return { type: 'unknown', confidence: 0, message: 'Insufficient data for diagnosis.' };
+  const clean   = deriv.filter(p => p.d <= medianD * 8);
+  if (clean.length < 5) return insufficient;
 
-  const n   = clean.length;
-  const q4  = Math.max(3, Math.floor(n / 4));
-  const mid = Math.floor(n / 2);
+  const pts = clean.filter(p => p.t > 0).slice().sort((a, b) => a.t - b.t);
+  if (pts.length < 5) return insufficient;
 
-  // Use median for early/mid/late windows — immune to any remaining outliers
-  const mdn = arr => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
-  const earlyAvg = mdn(clean.slice(0, q4).map(p => p.d));
-  const midAvg   = mdn(clean.slice(Math.max(0, mid - 2), mid + 3).map(p => p.d));
-  const lateAvg  = mdn(clean.slice(-q4).map(p => p.d));
+  const mdn = arr => {
+    if (!arr.length) return NaN;
+    const s = [...arr].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  };
 
-  // Check for unit slope (wellbore storage) in early time
-  const earlySlopes = [];
-  for (let i = 1; i < Math.min(5, clean.length); i++) {
-    if (clean[i].t > 0 && clean[i-1].t > 0 && clean[i].d > 0 && clean[i-1].d > 0) {
-      earlySlopes.push((Math.log10(clean[i].d) - Math.log10(clean[i-1].d)) /
-                       (Math.log10(clean[i].t)  - Math.log10(clean[i-1].t)));
+  const logT = pts.map(p => Math.log10(p.t));
+  const minL = logT[0];
+  const maxL = logT[logT.length - 1];
+  const span = maxL - minL;
+
+  function indexTertiles() {
+    const n = pts.length;
+    const i1 = Math.max(2, Math.floor(n / 3));
+    const i2 = Math.max(i1 + 1, Math.min(n - 2, Math.ceil(2 * n / 3)));
+    return {
+      earlyDs: pts.slice(0, i1).map(p => p.d),
+      midDs: pts.slice(i1, i2).map(p => p.d),
+      lateDs: pts.slice(i2, n).map(p => p.d)
+    };
+  }
+
+  let earlyDs, midDs, lateDs;
+  if (span < 1e-9) {
+    ({ earlyDs, midDs, lateDs } = indexTertiles());
+  } else {
+    const eEnd = minL + span / 3;
+    const lStart = maxL - span / 3;
+    earlyDs = [];
+    midDs = [];
+    lateDs = [];
+    for (let i = 0; i < pts.length; i++) {
+      const L = logT[i];
+      if (L <= eEnd) earlyDs.push(pts[i].d);
+      else if (L >= lStart) lateDs.push(pts[i].d);
+      else midDs.push(pts[i].d);
+    }
+    const minPerBand = 2;
+    if (earlyDs.length < minPerBand || midDs.length < minPerBand || lateDs.length < minPerBand) {
+      ({ earlyDs, midDs, lateDs } = indexTertiles());
     }
   }
-  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a,b) => a+b, 0) / earlySlopes.length : 0;
+
+  const earlyAvg = mdn(earlyDs);
+  const midAvg = mdn(midDs);
+  const lateAvg = mdn(lateDs);
+  if (Number.isNaN(earlyAvg) || Number.isNaN(midAvg) || Number.isNaN(lateAvg)) return insufficient;
+
+  // WBS: unit slope on derivative vs time in the earliest third of points (by time order)
+  const earlyPtCount = Math.max(2, Math.min(6, Math.ceil(pts.length / 3)));
+  const earlyCut = pts.slice(0, earlyPtCount);
+  const earlySlopes = [];
+  for (let i = 1; i < earlyCut.length; i++) {
+    if (earlyCut[i].t > 0 && earlyCut[i - 1].t > 0 && earlyCut[i].d > 0 && earlyCut[i - 1].d > 0) {
+      earlySlopes.push((Math.log10(earlyCut[i].d) - Math.log10(earlyCut[i - 1].d)) /
+                       (Math.log10(earlyCut[i].t) - Math.log10(earlyCut[i - 1].t)));
+    }
+  }
+  const avgEarlySlope = earlySlopes.length ? earlySlopes.reduce((a, b) => a + b, 0) / earlySlopes.length : 0;
   const hasWBS = Math.abs(avgEarlySlope - 1) < 0.3;
 
-  // Classify derivative shape
   const variation = Math.abs(lateAvg - earlyAvg) / (earlyAvg || 1);
-  // midDip: plateau clearly below both early and late (Neuman delayed-yield signature)
-  // threshold 0.70 (mid must be ≥30% lower) — detects even moderate unconfined plateaus
-  const midDip  = midAvg < earlyAvg * 0.70 && midAvg < lateAvg * 0.70;
+  const midDip = midAvg < earlyAvg * 0.70 && midAvg < lateAvg * 0.70;
   const dropping = lateAvg < earlyAvg * 0.5;
-  const rising   = lateAvg > earlyAvg * 1.8;
-  const flat     = variation < 0.3;
+  const rising = lateAvg > earlyAvg * 1.8;
+  const flat = variation < 0.3;
 
-  let result = { type: 'confined', confidence: 0.5, message: '', recommended: 'theis' };
+  let result;
 
   if (flat && !midDip) {
     result = { type: 'confined', confidence: 0.85, message: 'Derivative is approximately flat — indicates CONFINED aquifer (infinite acting radial flow).', recommended: 'theis' };
   } else if (midDip) {
     result = { type: 'unconfined', confidence: 0.8, message: 'Derivative shows characteristic dip and recovery — indicates UNCONFINED aquifer with delayed yield.', recommended: 'neuman' };
   } else if (dropping) {
-    result = { type: 'leaky', confidence: 0.75, message: 'Derivative decreases at late time — indicates LEAKY aquifer with vertical recharge through aquitard.', recommended: 'hantush' };
+    result = { type: 'leaky', confidence: 0.75, message: 'Derivative decreases at late log-time — indicates LEAKY aquifer with vertical recharge through aquitard.', recommended: 'hantush' };
   } else if (rising) {
-    result = { type: 'barrier', confidence: 0.7, message: 'Derivative continuously increases — indicates presence of an IMPERMEABLE BOUNDARY (barrier).', recommended: 'theis' };
+    result = { type: 'barrier', confidence: 0.7, message: 'Derivative increases at late log-time — indicates an IMPERMEABLE BOUNDARY (barrier) or similar stiffening response.', recommended: 'theis' };
+  } else {
+    result = {
+      type: 'unknown',
+      confidence: 0.35,
+      message: 'No clear signature matched (confined / unconfined / leaky / barrier). Interpret manually from the plot, geology, and test duration.',
+      recommended: null
+    };
   }
 
   if (hasWBS) {
@@ -2683,22 +2759,25 @@ function updateDiagnosticPlot() {
 
   const diag   = diagnoseAquifer(deriv);
   const diagEl = document.getElementById('diagnosisResult');
-  const colors = { confined: 'blue', unconfined: 'green', leaky: 'purple', barrier: 'red', unknown: 'slate' };
-  const c = colors[diag.type] || 'slate';
+  const st = DIAGNOSIS_STYLES[diag.type] || DIAGNOSIS_STYLES.unknown;
+  const rec = diag.recommended;
+  const recBtn = rec
+    ? `<button type="button" onclick="document.getElementById('analysisMethod').value='${rec}';switchTab('analysis');onMethodChange()" class="btn btn-primary text-xs w-full">
+        Use ${rec.charAt(0).toUpperCase() + rec.slice(1)} Method →
+      </button>`
+    : `<p class="text-xs text-slate-500 dark:text-slate-400">No automatic method pick — choose from geology and the curve shape on the Analysis tab.</p>`;
   diagEl.innerHTML = `
-    <div class="p-3 rounded-lg bg-${c}-50 dark:bg-${c}-900/20 border border-${c}-200 dark:border-${c}-700">
+    <div class="${st.card}">
       <div class="flex items-center gap-2 mb-2">
-        <span class="inline-block w-2 h-2 rounded-full bg-${c}-500"></span>
-        <span class="text-sm font-bold text-${c}-700 dark:text-${c}-400 uppercase">${diag.type}</span>
-        <span class="text-xs text-slate-400">(${Math.round(diag.confidence*100)}% confidence)</span>
+        <span class="${st.dot}"></span>
+        <span class="${st.title}">${diag.type}</span>
+        <span class="text-xs text-slate-400">(${Math.round(diag.confidence * 100)}% confidence)</span>
       </div>
       <p class="text-xs text-slate-600 dark:text-slate-300">${diag.message}</p>
     </div>
     <div class="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
       <div class="text-xs font-semibold mb-1">💡 Recommended Method</div>
-      <button onclick="document.getElementById('analysisMethod').value='${diag.recommended}';switchTab('analysis');onMethodChange()" class="btn btn-primary text-xs w-full">
-        Use ${diag.recommended.charAt(0).toUpperCase() + diag.recommended.slice(1)} Method →
-      </button>
+      ${recBtn}
     </div>`;
 }
 
