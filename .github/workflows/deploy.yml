@@ -19,6 +19,7 @@ jobs:
         run: |
           mkdir _site
           cp aquipro.html _site/index.html
+          touch _site/.nojekyll
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
