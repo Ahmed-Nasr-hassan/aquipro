@@ -1,0 +1,13 @@
+{
+  "name": "aquipro-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end tests for AquiPro (single-file HTML app).",
+  "scripts": {
+    "test": "node test-e2e.js",
+    "test:install": "npm install && npx playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

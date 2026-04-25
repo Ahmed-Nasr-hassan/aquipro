@@ -131,6 +131,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <option value="#image-well">Image Well (Boundary)</option>
     <option value="#step-drawdown">Step-Drawdown</option>
     <option value="#distance-dd">Distance-Drawdown</option>
+    <option value="#slug-test">Slug Test (Hvorslev / Bouwer-Rice)</option>
     <option value="#derivative">Bourdet Derivative</option>
     <option value="#confidence">Confidence Intervals</option>
     <option value="#superposition">Superposition (Variable Rates)</option>
@@ -172,6 +173,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <a href="#image-well" class="sub">Image Well (Boundary)</a>
       <a href="#step-drawdown" class="sub">Step-Drawdown</a>
       <a href="#distance-dd" class="sub">Distance-Drawdown</a>
+      <a href="#slug-test" class="sub">Slug Test (Hvorslev / Bouwer-Rice)</a>
       <a href="#derivative">Bourdet Derivative</a>
       <a href="#confidence">Confidence Intervals</a>
       <a href="#superposition">Superposition</a>
@@ -348,7 +350,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <table>
       <thead><tr><th>Tool</th><th>What It Does</th><th>When to Use</th></tr></thead>
       <tbody>
-        <tr><td><strong>Outlier Detection</strong></td><td>Uses the IQR (Interquartile Range) method to flag statistical outliers. Flagged rows appear highlighted in red.</td><td>When you suspect erratic readings from logger malfunctions or transducer noise</td></tr>
+        <tr><td><strong>Outlier Detection</strong></td><td>Uses the IQR (Interquartile Range) method to flag statistical outliers. Flagged rows appear highlighted in red and are excluded from <code>APP.processed</code> (the dataset analysis reads from). A <strong>Remove Permanently</strong> button appears alongside the flag count — click it to delete the flagged points from the dataset entirely (raw table, plots, exports, every analysis step). Re-import the file to restore.</td><td>When you suspect erratic readings from logger malfunctions or transducer noise</td></tr>
         <tr><td><strong>Smoothing</strong></td><td>Moving-average filter with adjustable window size (3–11 points)</td><td>Noisy transducer data with high-frequency fluctuations</td></tr>
         <tr><td><strong>Detrending</strong></td><td>Removes a linear trend from the first few data points</td><td>When there was a pre-existing water level trend (tidal, barometric) before pumping</td></tr>
         <tr><td><strong>Wellbore Storage</strong></td><td>Detects early-time data with unit slope on log-log plot, which indicates water is being released from the casing rather than the aquifer</td><td>Early-time data in large-diameter wells</td></tr>
@@ -422,11 +424,11 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <p>This is where you determine the aquifer's hydraulic properties by matching your observed data to a theoretical type curve.</p>
 
     <h3>Choosing a Method</h3>
-    <p>Select a method from the dropdown based on your diagnostic plot results or aquifer knowledge. AquiPro implements eight methods (see the <a href="#theory">Theory section</a> below for full equations), including three specialized analyses: step-drawdown, boundary (image well), and distance-drawdown.</p>
+    <p>Select a method from the dropdown based on your diagnostic plot results or aquifer knowledge. AquiPro implements nine methods (see the <a href="#theory">Theory section</a> below for full equations), including four specialized analyses: step-drawdown, boundary (image well), distance-drawdown, and slug test (Hvorslev / Bouwer-Rice).</p>
     <p>When several wells contain data, use <strong>Analysing:</strong> to select which series is fitted (observation wells are preferred by default). The plot and Auto-Fit always use that well’s active dataset.</p>
 
     <h3>Derivative on the analysis chart</h3>
-    <p>For standard time–drawdown methods (not step-drawdown, distance-drawdown, or recovery), the main fit chart can show a <strong>derivative trace</strong> using the same <strong>L</strong> smoothing value as on the Diagnostic Plot tab. That lets you compare the model curve with the Bourdet derivative without switching tabs.</p>
+    <p>For standard time–drawdown methods (not step-drawdown, distance-drawdown, slug test, or recovery), the main fit chart can show a <strong>derivative trace</strong> using the same <strong>L</strong> smoothing value as on the Diagnostic Plot tab. That lets you compare the model curve with the Bourdet derivative without switching tabs.</p>
 
     <h3>Manual Curve Matching</h3>
     <p>Use the <strong>T</strong> and <strong>S</strong> sliders to manually adjust the theoretical curve until it overlays the observed data. The sliders are logarithmic — small movements produce large parameter changes. Watch the RMSE and R² values update in real time.</p>
@@ -480,6 +482,7 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
     <p>Three specialized analysis types have their own controls:</p>
     <ul>
       <li><strong>Step-Drawdown (Hantush-Bierschenk)</strong> — Define pumping steps (duration + rate) in the dedicated panel, then click "Analyze Step Test" to compute aquifer loss (B), well loss (C), efficiency, and specific capacity.</li>
+      <li><strong>Slug Test (Hvorslev / Bouwer–Rice)</strong> — Enter casing/screen geometry, pick the sub-method, and AquiPro fits ln(H/H₀) vs. t to derive K. See <a href="#slug-test">theory below</a>.</li>
       <li><strong>Boundary — Image Well Theory</strong> — Use the distance-to-boundary slider and select the boundary type (no-flow barrier or constant-head recharge) to model boundary effects via superposition.</li>
       <li><strong>Distance-Drawdown (Multi-Well)</strong> — Requires multiple observation wells at different distances. Select an analysis time to plot theoretical drawdown versus distance.</li>
     </ul>
@@ -753,6 +756,33 @@ td{padding:.5rem .75rem;border-bottom:1px solid #f1f5f9}
       <li>Use the <strong>Analysis Time</strong> slider to select the time of interest</li>
       <li>AquiPro plots the Theis-based drawdown vs. distance curve along with the observed drawdown at each well's distance</li>
     </ol>
+
+    <h3 id="slug-test">9. Slug Test — Hvorslev (1951) &amp; Bouwer–Rice (1976)</h3>
+    <span class="tag tag-confined">Single-Well</span>
+    <p>A <strong>slug test</strong> measures hydraulic conductivity (K) at a single well by instantaneously raising or lowering the water level — typically by inserting/removing a solid slug or by air-pressurizing a sealed casing — and recording the recovery of head displacement <em>H(t)</em> back to static. Both Hvorslev and Bouwer–Rice fit a straight line to <em>ln(H/H₀)</em> versus <em>t</em> and derive K from the slope.</p>
+
+    <h4>Hvorslev (1951)</h4>
+    <p>Assumes a piezometer with screen length L<sub>e</sub> &gt; 8·r<sub>w</sub>, fully submerged, in a homogeneous isotropic medium:</p>
+    <p>$$ K = \frac{r_c^2 \, \ln(L_e/r_w)}{2 \, L_e \, T_0} $$</p>
+    <p>where <em>T₀</em> (the &ldquo;basic time lag&rdquo;) is the time at which H/H₀ = 1/e ≈ 0.37 on the semi-log straight line. Equivalently, K = (r<sub>c</sub>² · ln(L<sub>e</sub>/r<sub>w</sub>)) / (2·L<sub>e</sub>) · |slope|, where the slope is from <em>ln(H/H₀) = a + slope·t</em>.</p>
+
+    <h4>Bouwer–Rice (1976)</h4>
+    <p>For a partially penetrating well in an unconfined aquifer:</p>
+    <p>$$ K = \frac{r_c^2 \, \ln(R_e/r_w)}{2 \, L_e} \cdot \frac{1}{t} \, \ln\!\left(\frac{H_0}{H_t}\right) $$</p>
+    <p>where <em>R<sub>e</sub></em> is the empirical effective radius over which the head difference is dissipated. Bouwer and Rice provide curves of <em>ln(R<sub>e</sub>/r<sub>w</sub>)</em> as a function of L<sub>e</sub>, screen-to-water-table distance, and aquifer thickness; in AquiPro you enter R<sub>e</sub> directly.</p>
+
+    <h4>How to Apply in AquiPro</h4>
+    <ol>
+      <li>Enter slug-test data in the <strong>Data Input</strong> tab as <strong>t</strong> (minutes since the slug) and <strong>s</strong> (head displacement <em>H</em> above or below static, in meters)</li>
+      <li>Open <strong>Tab 4: Analysis</strong> and choose <strong>"Slug Test (Hvorslev / Bouwer-Rice)"</strong></li>
+      <li>Pick the sub-method, fill in casing radius r<sub>c</sub>, well/screen radius r<sub>w</sub>, screen length L<sub>e</sub>, and (Bouwer–Rice only) effective radius R<sub>e</sub></li>
+      <li>Optionally override H₀ — by default AquiPro uses |s| of the first reading</li>
+      <li>Click <strong>"Analyze Slug Test"</strong>. Results show K (m/day and m/s), regression slope, basic time lag T₀, H₀, and R²; an amber warning appears if the Hvorslev L<sub>e</sub>/r<sub>w</sub> &gt; 8 assumption is violated</li>
+    </ol>
+
+    <p><strong>Try it instantly:</strong> on the Project Setup tab, click <strong>"Slug Test Example"</strong>. AquiPro generates a synthetic falling-head decay (rc=rw=0.05 m, L<sub>e</sub>=3 m, target K≈10⁻⁵ m/s ≈ 0.86 m/day) with mild noise, prefills the geometry on the Analysis tab, and runs the Hvorslev fit so you can see the workflow end-to-end.</p>
+
+    <p><strong>Notes:</strong> the same <strong>Outlier Detection</strong> + <strong>Remove Permanently</strong> workflow on the Data Input tab applies to slug-test data. The chart plots H/H₀ on a log y-axis vs. linear time, with the regression line overlaid.</p>
 
     <!-- DERIVATIVE -->
     <h3 id="derivative">The Bourdet Derivative — A Modern Diagnostic</h3>

@@ -45,6 +45,7 @@ body{font-family:'Inter',system-ui,sans-serif;transition:background .3s,color .3
 .btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
 .btn-purple{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff}.btn-purple:hover{box-shadow:0 4px 12px rgba(139,92,246,.4);transform:translateY(-1px)}
 .btn-teal{background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff}.btn-teal:hover{box-shadow:0 4px 12px rgba(13,148,136,.4);transform:translateY(-1px)}
+.btn-amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}.btn-amber:hover{box-shadow:0 4px 12px rgba(245,158,11,.4);transform:translateY(-1px)}
 .btn-outline{border:1px solid #cbd5e1;background:transparent;color:#475569}.btn-outline:hover{border-color:#3b82f6;color:#3b82f6}
 .dark .btn-outline{border-color:#475569;color:#94a3b8}.dark .btn-outline:hover{border-color:#60a5fa;color:#60a5fa}
 .select-field{padding:.5rem .75rem;border:1px solid #cbd5e1;border-radius:.5rem;font-size:.8125rem;background:transparent;cursor:pointer}
@@ -348,6 +349,10 @@ html{-webkit-text-size-adjust:100%}
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
       Advanced Example
     </button>
+    <button onclick="loadSlugTestExampleData()" class="btn btn-amber" title="Falling-head slug test · Hvorslev / Bouwer-Rice · synthetic K=1e-5 m/s">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+      Slug Test Example
+    </button>
     <button onclick="clearAllData()" class="btn btn-outline text-xs">Clear All</button>
   </div>
 </div>
@@ -439,6 +444,10 @@ html{-webkit-text-size-adjust:100%}
             <span class="text-xs font-medium">Outlier Detection (IQR)</span>
           </label>
           <p class="text-[.65rem] text-slate-400 ml-5">Flag and exclude statistical outliers</p>
+          <div id="outlierActions" class="ml-5 mt-1 hidden flex items-center gap-2">
+            <span id="outlierCount" class="text-[.65rem] text-rose-500 font-medium"></span>
+            <button onclick="removeOutliersPermanently()" class="btn btn-outline text-[.65rem] py-0.5 px-2" title="Delete flagged outliers from the dataset (table, plots, all analysis steps)">Remove Permanently</button>
+          </div>
         </div>
         <div>
           <label class="flex items-center gap-2 cursor-pointer">
@@ -542,6 +551,7 @@ html{-webkit-text-size-adjust:100%}
         <option value="theis-boundary">Boundary — Image Well Theory</option>
         <option value="step-drawdown">Step-Drawdown (Hantush-Bierschenk)</option>
         <option value="distance-dd">Distance-Drawdown (Multi-Well)</option>
+        <option value="slug-test">Slug Test (Hvorslev / Bouwer-Rice)</option>
       </select>
 
       <!-- Parameter Sliders -->
@@ -586,6 +596,27 @@ html{-webkit-text-size-adjust:100%}
           </div>
           <button onclick="addStepRow()" class="btn btn-outline text-xs mt-1 w-full">+ Add Step</button>
           <button onclick="runStepDrawdown()" class="btn btn-success text-xs mt-2 w-full">Analyze Step Test</button>
+        </div>
+        <div id="slugControl" class="hidden">
+          <p class="text-[.65rem] text-slate-400 mb-2">Data table: <strong>t</strong> = time (min) since slug, <strong>s</strong> = head displacement H above/below static. H₀ defaults to the first reading.</p>
+          <label class="text-xs">Sub-method</label>
+          <select id="slugMethod" class="select-field w-full mb-2" onchange="runSlugTest()">
+            <option value="hvorslev">Hvorslev (1951) — piezometer</option>
+            <option value="bouwer-rice">Bouwer–Rice (1976) — partially penetrating</option>
+          </select>
+          <label class="text-xs">Casing radius r<sub>c</sub> (m)</label>
+          <input type="number" id="slugRc" class="input-field w-full mb-1" step="any" value="0.05" oninput="runSlugTest()">
+          <label class="text-xs">Screen / well radius r<sub>w</sub> (m)</label>
+          <input type="number" id="slugRw" class="input-field w-full mb-1" step="any" value="0.05" oninput="runSlugTest()">
+          <label class="text-xs">Screen length L<sub>e</sub> (m)</label>
+          <input type="number" id="slugLe" class="input-field w-full mb-1" step="any" value="3" oninput="runSlugTest()">
+          <div id="slugReWrap">
+            <label class="text-xs">Effective radius R<sub>e</sub> (m) <span class="tooltip-icon">?<span class="tooltip-text">Bouwer–Rice effective radius. If unsure, use ~Le or estimate from the empirical curves; only ln(Re/rw) matters.</span></span></label>
+            <input type="number" id="slugRe" class="input-field w-full mb-1" step="any" value="3" oninput="runSlugTest()">
+          </div>
+          <label class="text-xs">Initial displacement H₀ (m, blank = first reading)</label>
+          <input type="number" id="slugH0" class="input-field w-full mb-2" step="any" placeholder="auto" oninput="runSlugTest()">
+          <button onclick="runSlugTest()" class="btn btn-success text-xs w-full">Analyze Slug Test</button>
         </div>
         <div id="distDDControl" class="hidden">
           <label>Analysis Time (min): <span id="distTimeVal" class="font-mono text-cyan-600 dark:text-cyan-400">100</span></label>
@@ -1208,8 +1239,37 @@ function applyPreprocessing() {
   }
 
   APP.processed = d.filter(p => !p.outlier);
+  APP.outlierFlags = d.map(p => !!p.outlier);
+  const outlierTotal = APP.outlierFlags.filter(Boolean).length;
+  const actions = document.getElementById('outlierActions');
+  const countEl = document.getElementById('outlierCount');
+  if (actions && countEl) {
+    if (document.getElementById('chkOutlier').checked && outlierTotal > 0) {
+      countEl.textContent = `${outlierTotal} outlier${outlierTotal === 1 ? '' : 's'} flagged`;
+      actions.classList.remove('hidden');
+      actions.classList.add('flex');
+    } else {
+      actions.classList.add('hidden');
+      actions.classList.remove('flex');
+    }
+  }
   updateDataStats();
   highlightTableOutliers(d);
+}
+
+function removeOutliersPermanently() {
+  if (!APP.outlierFlags || !APP.outlierFlags.some(Boolean)) {
+    toast('No outliers to remove. Enable Outlier Detection first.', 'warning');
+    return;
+  }
+  const removed = APP.outlierFlags.filter(Boolean).length;
+  if (!confirm(`Permanently delete ${removed} flagged outlier${removed === 1 ? '' : 's'} from this dataset? This affects the data table, plots, and all analysis steps. (Re-import the file to restore.)`)) return;
+  APP.data = APP.data.filter((_, i) => !APP.outlierFlags[i]);
+  APP.outlierFlags = [];
+  if (APP.activeWell) APP.wellData[APP.activeWell] = [...APP.data];
+  populateDataTable();
+  applyPreprocessing();
+  toast(`Removed ${removed} outlier${removed === 1 ? '' : 's'} from dataset`, 'success');
 }
 
 function highlightTableOutliers(d) {
@@ -2088,6 +2148,100 @@ function runStepDrawdown() {
 }
 
 // =============================================================================
+// SLUG TEST ANALYSIS — Hvorslev (1951) & Bouwer–Rice (1976)
+// =============================================================================
+// Both methods fit a straight line to ln(H/H0) vs t (semi-log) and derive K
+// from the slope. H is the head displacement above (rising-head) or below
+// (falling-head) the static water level; data table column "s" is treated as |H|.
+function runSlugTest() {
+  if (document.getElementById('analysisMethod').value !== 'slug-test') return;
+  const subMethod = document.getElementById('slugMethod').value;
+  document.getElementById('slugReWrap').classList.toggle('hidden', subMethod !== 'bouwer-rice');
+
+  const data = APP.processed.length ? APP.processed : APP.data;
+  if (data.length < 3) { toast('Need at least 3 slug-test points (t, H)', 'warning'); return; }
+
+  const rc = parseFloat(document.getElementById('slugRc').value);
+  const rw = parseFloat(document.getElementById('slugRw').value);
+  const Le = parseFloat(document.getElementById('slugLe').value);
+  const Re = parseFloat(document.getElementById('slugRe').value);
+  const H0Input = parseFloat(document.getElementById('slugH0').value);
+  if (!(rc > 0) || !(rw > 0) || !(Le > 0)) { toast('Enter positive rc, rw, Le', 'warning'); return; }
+  if (subMethod === 'bouwer-rice' && !(Re > 0)) { toast('Enter positive Re for Bouwer–Rice', 'warning'); return; }
+
+  const absH = data.map(d => Math.abs(d.s)).filter(v => v > 0);
+  const H0 = isFinite(H0Input) && H0Input > 0 ? H0Input : (absH[0] || 1);
+
+  // Build (t_seconds, ln(H/H0)) for points where |H| > 0
+  const fitPts = [];
+  data.forEach(d => {
+    const H = Math.abs(d.s);
+    if (H > 0 && d.t > 0) fitPts.push({ t: d.t * 60, ratio: H / H0, ln: Math.log(H / H0) });
+  });
+  if (fitPts.length < 2) { toast('Need ≥2 points with H > 0', 'warning'); return; }
+
+  // Linear regression: ln(H/H0) = a + b·t (expect a≈0, b<0)
+  const n = fitPts.length;
+  let sumT=0, sumL=0, sumTL=0, sumT2=0;
+  fitPts.forEach(p => { sumT += p.t; sumL += p.ln; sumTL += p.t * p.ln; sumT2 += p.t * p.t; });
+  const slope = (n * sumTL - sumT * sumL) / (n * sumT2 - sumT * sumT);
+  const intercept = (sumL - slope * sumT) / n;
+  const meanL = sumL / n;
+  let ssRes = 0, ssTot = 0;
+  fitPts.forEach(p => { const f = intercept + slope * p.t; ssRes += (p.ln - f) ** 2; ssTot += (p.ln - meanL) ** 2; });
+  const R2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+
+  // Shape factor — both methods reduce to K = (rc² · ln(R*/rw)) / (2·Le) · |slope|
+  const ratioLeR = subMethod === 'hvorslev' ? Le / rw : Re / rw;
+  if (!(ratioLeR > 1)) { toast('ln(geometry ratio) must be positive — check rw vs Le/Re', 'warning'); return; }
+  const K_mps = (rc * rc * Math.log(ratioLeR)) / (2 * Le) * Math.abs(slope); // m/s
+  const K_mday = K_mps * 86400;
+  const T0_seconds = slope < 0 ? -1 / slope : NaN; // basic time lag (where H/H0 = 1/e)
+
+  // Plot semi-log H/H0 vs t (minutes)
+  const isDark = APP.isDark;
+  const tMinPts = fitPts.map(p => p.t / 60);
+  const ratios = fitPts.map(p => p.ratio);
+  const tFitMin = [Math.min(...tMinPts), Math.max(...tMinPts)];
+  const fitRatio = tFitMin.map(tm => Math.exp(intercept + slope * tm * 60));
+
+  Plotly.react('analysisChart', [
+    { x: tMinPts, y: ratios, mode: 'markers', name: 'Observed H/H₀', marker: { color: '#3b82f6', size: 8 } },
+    { x: tFitMin, y: fitRatio, mode: 'lines', name: `${subMethod === 'hvorslev' ? 'Hvorslev' : 'Bouwer–Rice'} fit (R²=${R2.toFixed(3)})`, line: { color: '#ef4444', width: 2.5 } }
+  ], {
+    xaxis: { title: 'Time (min)', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    yaxis: { title: 'H/H₀', type: 'log', gridcolor: isDark ? '#334155' : '#e2e8f0', color: isDark ? '#94a3b8' : '#475569' },
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter', color: isDark ? '#e2e8f0' : '#1e293b' },
+    margin: getPlotMargins({ l: window.innerWidth < 640 ? 52 : 70 })
+  }, getPlotlyInteractionConfig());
+
+  let warn = '';
+  if (subMethod === 'hvorslev' && Le / rw < 8) warn = '<div class="mt-2 p-2 rounded bg-amber-50 dark:bg-amber-900/20 text-[.65rem] text-amber-700 dark:text-amber-300">⚠ Hvorslev assumes L<sub>e</sub>/r<sub>w</sub> &gt; 8. Current ratio = ' + (Le/rw).toFixed(1) + '. Consider Bouwer–Rice.</div>';
+
+  document.getElementById('resultsContent').innerHTML = `
+    <div class="section-title text-sm">📊 Slug Test Results — ${subMethod === 'hvorslev' ? 'Hvorslev' : 'Bouwer–Rice'}</div>
+    <div class="grid grid-cols-2 gap-2">
+      <div class="p-2 rounded bg-blue-50 dark:bg-blue-900/20"><div class="text-[.6rem] text-slate-400">Hyd. Conductivity (K)</div><div class="font-bold text-sm text-blue-600 dark:text-blue-400">${K_mday < 0.01 ? K_mday.toExponential(3) : K_mday.toFixed(4)} m/day</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">K (SI)</div><div class="font-bold text-sm">${K_mps.toExponential(3)} m/s</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">Slope (1/s)</div><div class="font-bold text-sm">${slope.toExponential(3)}</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">Basic time lag T₀</div><div class="font-bold text-sm">${isFinite(T0_seconds) ? (T0_seconds/60).toFixed(2) + ' min' : '—'}</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">H₀ used</div><div class="font-bold text-sm">${H0.toFixed(3)} m</div></div>
+      <div class="p-2 rounded bg-slate-50 dark:bg-slate-800"><div class="text-[.6rem] text-slate-400">R² (semi-log fit)</div><div class="font-bold text-sm ${R2 > 0.95 ? 'text-green-600' : 'text-amber-600'}">${R2.toFixed(4)}</div></div>
+    </div>
+    ${warn}`;
+
+  // Live badges
+  document.getElementById('liveT').textContent = 'K: ' + (K_mday < 0.01 ? K_mday.toExponential(2) : K_mday.toFixed(3)) + ' m/d';
+  document.getElementById('liveT').classList.remove('hidden');
+  document.getElementById('liveS').classList.add('hidden');
+  document.getElementById('liveMethod').textContent = 'slug-test (' + subMethod + ')';
+  document.getElementById('liveMethod').classList.remove('hidden');
+
+  APP.results = { K: K_mday, K_si: K_mps, slope, R2, H0, T0: T0_seconds, subMethod, method: 'slug-test' };
+}
+
+// =============================================================================
 // DISTANCE-DRAWDOWN ANALYSIS
 // =============================================================================
 function computeDistanceDrawdown() {
@@ -2218,17 +2372,19 @@ function onMethodChange() {
   document.getElementById('boundaryControl').classList.toggle('hidden', method !== 'theis-boundary');
   document.getElementById('stepDDControl').classList.toggle('hidden', method !== 'step-drawdown');
   document.getElementById('distDDControl').classList.toggle('hidden', method !== 'distance-dd');
+  document.getElementById('slugControl').classList.toggle('hidden', method !== 'slug-test');
 
   // Hide standard sliders for special methods
-  const hideStandard = ['step-drawdown'].includes(method);
+  const hideStandard = ['step-drawdown','slug-test'].includes(method);
   document.getElementById('paramControls').querySelectorAll(':scope > div:not([id])').forEach(d => d.classList.toggle('hidden', hideStandard));
-  document.getElementById('autoFitBtn').classList.toggle('hidden', ['step-drawdown','distance-dd'].includes(method));
+  document.getElementById('autoFitBtn').classList.toggle('hidden', ['step-drawdown','distance-dd','slug-test'].includes(method));
 
   // Reset sensitivity — results from the previous method are no longer valid
   APP._sensData = null;
   document.getElementById('sensitivityCard').classList.add('hidden');
 
   if (method === 'distance-dd') computeDistanceDrawdown();
+  else if (method === 'slug-test') runSlugTest();
   else updateAnalysisPlot();
 }
 
@@ -2356,7 +2512,7 @@ function updateResults() {
   if (!data.length) return;
 
   const method = document.getElementById('analysisMethod').value;
-  if (method === 'step-drawdown' || method === 'distance-dd') return;
+  if (method === 'step-drawdown' || method === 'distance-dd' || method === 'slug-test') return;
   if (method === 'recovery') { updateRecoveryPlot(getCurrentParams()); return; }
   const params = getCurrentParams();
   const predicted = data.map(d => computeTheoretical(d.t, method, params));
@@ -2603,7 +2759,7 @@ function updateAnalysisPlot() {
   }
 
   const method = document.getElementById('analysisMethod').value;
-  if (method === 'step-drawdown' || method === 'distance-dd') return;
+  if (method === 'step-drawdown' || method === 'distance-dd' || method === 'slug-test') return;
   if (method === 'recovery') { updateRecoveryPlot(getCurrentParams()); return; }
   const params = getCurrentParams();
 
@@ -3885,6 +4041,64 @@ function loadAdvancedExampleData() {
   onSliderChange();
 
   toast('Advanced example loaded — multi-well, variable rate, Neuman unconfined, recovery data ready.', 'success');
+}
+
+function loadSlugTestExampleData() {
+  // Synthetic falling-head slug test: rc=rw=0.05 m, Le=3 m, K=1e-5 m/s.
+  // Hvorslev: slope = -2·Le·K / (rc²·ln(Le/rw)) ≈ -5.86e-3 1/s.
+  _resetForExample();
+  document.getElementById('projectName').value = 'Hillside Monitoring Well — Slug Test';
+  document.getElementById('projectNameToolbar').value = 'Hillside Monitoring Well — Slug Test';
+  document.getElementById('projLocation').value = 'Hillside Site, MW-3';
+  document.getElementById('projDate').value = '2026-04-10';
+  document.getElementById('projAnalyst').value = 'M. Chen';
+  document.getElementById('projNotes').value =
+    'Falling-head slug test on 2-inch monitoring well screened in silty sand. Solid PVC slug withdrawn at t=0; ' +
+    'transducer recorded head displacement H above static. L_e/r_w = 60 satisfies Hvorslev assumption.';
+  document.getElementById('aquiferThickness').value = '8';
+  document.getElementById('thicknessUnit').value = 'm';
+  document.getElementById('staticWL').value = '3.5';
+  document.getElementById('screenTop').value = '4';
+  document.getElementById('screenBot').value = '7';
+  document.getElementById('casingDia').value = '50';
+  document.getElementById('casingUnit').value = 'mm';
+  document.getElementById('pwID').value = 'MW-3';
+
+  // Generate the synthetic decay (with mild noise so the fit is realistic, not exact).
+  const rc = 0.05, rw = 0.05, Le = 3, K = 1e-5;
+  const slope = -(2 * Le * K) / (rc * rc * Math.log(Le / rw));   // 1/s
+  const H0 = 1.0;
+  const data = [];
+  // PRNG with fixed seed so the example is reproducible across reloads.
+  let seed = 17;
+  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) - 0.5; };
+  for (let i = 1; i <= 30; i++) {
+    const t_min = i * 0.25;            // 15 s spacing, total 7.5 min
+    const H_clean = H0 * Math.exp(slope * t_min * 60);
+    const H = H_clean * (1 + 0.02 * rand()); // ±2% noise
+    if (H > 1e-4) data.push({ t: +t_min.toFixed(3), s: +H.toFixed(4) });
+  }
+  APP.data = data;
+  APP.activeWell = 'MW-3';
+  APP.wellData = { 'MW-3': [...APP.data] };
+  syncWellSelector();
+  populateDataTable();
+  applyPreprocessing();
+  updateDataStats();
+  onCoordsChange();
+
+  // Switch to slug-test method and prefill geometry.
+  const methodSel = document.getElementById('analysisMethod');
+  if (methodSel) { methodSel.value = 'slug-test'; onMethodChange(); }
+  document.getElementById('slugMethod').value = 'hvorslev';
+  document.getElementById('slugRc').value = rc;
+  document.getElementById('slugRw').value = rw;
+  document.getElementById('slugLe').value = Le;
+  document.getElementById('slugRe').value = Le;
+  document.getElementById('slugH0').value = '';      // let it auto-pick from first reading
+  runSlugTest();
+
+  toast('Slug-test example loaded — Tab 4 ready with Hvorslev fit (target K ≈ 0.86 m/day).', 'success');
 }
 
 function clearAllData() {
